@@ -1,34 +1,6 @@
-:root {
-  /* Base colors */
-  --bg-primary: #1a1a2e;
-  --bg-secondary: #16213e;
-  --bg-tertiary: #0f3460;
-  --bg-card: #1e1e3f;
-
-  /* Text colors */
-  --text-primary: #e8e8e8;
-  --text-secondary: #a0a0a0;
-  --text-muted: #666;
-
-  /* Accent colors per app */
-  --accent-memory: #f87171;
-  --accent-vision: #8b5cf6;
-  --accent-chain: #3b82f6;
-  --accent-settings: #64748b;
-
-  /* Generic accent (changes per active app) */
-  --accent: #8b5cf6;
-  --accent-hover: #7c3aed;
-
-  /* Borders & shadows */
-  --border-color: #2a2a4a;
-  --shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-
-  /* Sizing */
-  --header-height: 48px;
-  --sidebar-width: 250px;
-  --tab-height: 36px;
-}
+/* NOTE: CSS Variables are now centralized in variables.css
+   This file only contains global resets and base element styles.
+   DO NOT define CSS custom properties here - use variables.css instead. */
 
 * {
   margin: 0;
@@ -37,7 +9,7 @@
 }
 
 body {
-  font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--font-family);
   background-color: var(--bg-primary);
   color: var(--text-primary);
   overflow: hidden;
@@ -66,7 +38,7 @@ body {
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--accent);
+  background: var(--border-color-hover);
 }
 
 /* Button base styles */
@@ -86,46 +58,50 @@ button:disabled {
 /* Input base styles */
 input, textarea, select {
   font-family: inherit;
-  background: var(--bg-secondary);
+  background: var(--bg-input);
   color: var(--text-primary);
   border: 1px solid var(--border-color);
-  border-radius: 6px;
-  padding: 8px 12px;
+  border-radius: var(--border-radius-md);
+  padding: var(--spacing-sm) var(--spacing-md);
   outline: none;
-  transition: border-color 0.2s ease;
+  transition: border-color var(--transition-fast);
 }
 
 input:focus, textarea:focus, select:focus {
-  border-color: var(--accent);
+  border-color: var(--accent-gold);
 }
 
-/* Common button styles */
+/* Common button styles - Use shared Button component CSS instead.
+   These are kept for backward compatibility only. */
 .btn {
-  padding: 8px 16px;
-  border-radius: 6px;
-  font-size: 14px;
-  font-weight: 500;
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-radius: var(--border-radius-md);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--spacing-sm);
+  transition: all var(--transition-fast);
 }
 
 .btn-primary {
-  background: var(--accent);
-  color: white;
+  background: var(--accent-gold);
+  color: var(--text-inverse);
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: var(--accent-hover);
+  background: var(--accent-gold-hover);
 }
 
 .btn-secondary {
-  background: var(--bg-tertiary);
+  background: transparent;
   color: var(--text-primary);
+  border: 1px solid var(--border-color);
 }
 
 .btn-secondary:hover:not(:disabled) {
-  background: var(--border-color);
+  background: var(--bg-elevated);
+  border-color: var(--accent-gold);
 }
 
 .btn-ghost {
@@ -134,7 +110,7 @@ input:focus, textarea:focus, select:focus {
 }
 
 .btn-ghost:hover:not(:disabled) {
-  background: var(--bg-secondary);
+  background: var(--bg-elevated);
   color: var(--text-primary);
 }
 
@@ -145,13 +121,13 @@ input:focus, textarea:focus, select:focus {
 .items-center { align-items: center; }
 .justify-center { justify-content: center; }
 .justify-between { justify-content: space-between; }
-.gap-1 { gap: 4px; }
-.gap-2 { gap: 8px; }
+.gap-1 { gap: var(--spacing-xs); }
+.gap-2 { gap: var(--spacing-sm); }
 .gap-3 { gap: 12px; }
-.gap-4 { gap: 16px; }
-.p-2 { padding: 8px; }
+.gap-4 { gap: var(--spacing-md); }
+.p-2 { gap: var(--spacing-sm); }
 .p-3 { padding: 12px; }
-.p-4 { padding: 16px; }
+.p-4 { padding: var(--spacing-md); }
 .text-center { text-align: center; }
 .overflow-auto { overflow: auto; }
 .overflow-hidden { overflow: hidden; }

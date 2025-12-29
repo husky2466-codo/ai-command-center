@@ -25,6 +25,22 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // API keys
   getEnvKeys: () => ipcRenderer.invoke('get-env-keys'),
 
+  // Database operations
+  dbQuery: (sql, params) => ipcRenderer.invoke('db:query', sql, params),
+  dbRun: (sql, params) => ipcRenderer.invoke('db:run', sql, params),
+  dbGet: (sql, params) => ipcRenderer.invoke('db:get', sql, params),
+  dbTransaction: (operations) => ipcRenderer.invoke('db:transaction', operations),
+  dbHealth: () => ipcRenderer.invoke('db:health'),
+  dbTables: () => ipcRenderer.invoke('db:tables'),
+  dbSchema: (tableName) => ipcRenderer.invoke('db:schema', tableName),
+  dbVectorSearch: (params) => ipcRenderer.invoke('db:vector-search', params),
+
+  // Memory extraction
+  memoryFindClaudeSessions: () => ipcRenderer.invoke('memory:find-claude-sessions'),
+  memoryExtractFromSession: (sessionPath, apiKey) => ipcRenderer.invoke('memory:extract-from-session', sessionPath, apiKey),
+  memoryGetExtractionState: () => ipcRenderer.invoke('memory:get-extraction-state'),
+  memorySaveExtractionState: (state) => ipcRenderer.invoke('memory:save-extraction-state', state),
+
   // Events
   onFileChange: (callback) => {
     ipcRenderer.on('file-changed', (event, data) => callback(data));

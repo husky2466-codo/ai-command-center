@@ -1,6 +1,8 @@
 const { app, BrowserWindow, ipcMain, shell, desktopCapturer, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const { initializeDatabase, closeDatabase } = require('./database/db.cjs');
+const { registerDatabaseHandlers } = require('./database/ipc.cjs');
 
 // Prevent multiple instances
 const gotTheLock = app.requestSingleInstanceLock();
@@ -60,6 +62,17 @@ app.whenReady().then(() => {
   ensureDir(path.join(userDataPath, 'rag-outputs'));
   ensureDir(path.join(userDataPath, 'prompt-lists'));
   ensureDir(path.join(userDataPath, 'chain-configs'));
+  ensureDir(path.join(userDataPath, 'extracted-memories'));
+
+  // Initialize database and register IPC handlers
+  try {
+    initializeDatabase();
+    registerDatabaseHandlers();
+    console.log('[Main] Database initialized successfully');
+  } catch (err) {
+    console.error('[Main] Failed to initialize database:', err.message);
+    // Continue running - some features may be unavailable
+  }
 
   createWindow();
 
@@ -81,6 +94,10 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit();
   }
+});
+
+app.on('before-quit', () => {
+  closeDatabase();
 });
 
 // IPC Handlers
@@ -240,6 +257,96 @@ ipcMain.handle('select-folder', async () => {
       return { success: false, canceled: true };
     }
     return { success: true, path: result.filePaths[0] };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// Memory extraction handlers
+ipcMain.handle('memory:find-claude-sessions', async () => {
+  try {
+    // Claude Code stores sessions in AppData\Local\claude-code\sessions
+    const localAppData = app.getPath('appData').replace('Roaming', 'Local');
+    const claudeSessionsBase = path.join(localAppData, 'claude-code', 'sessions');
+
+    if (!fs.existsSync(claudeSessionsBase)) {
+      return { success: false, error: 'Claude Code sessions directory not found' };
+    }
+
+    // Find all .jsonl files in all project subdirectories
+    const sessions = [];
+    const projectDirs = fs.readdirSync(claudeSessionsBase);
+
+    for (const projectDir of projectDirs) {
+      const projectPath = path.join(claudeSessionsBase, projectDir);
+      const stats = fs.statSync(projectPath);
+
+      if (stats.isDirectory()) {
+        const files = fs.readdirSync(projectPath);
+        const jsonlFiles = files.filter(f => f.endsWith('.jsonl'));
+
+        for (const file of jsonlFiles) {
+          const filePath = path.join(projectPath, file);
+          const fileStats = fs.statSync(filePath);
+
+          sessions.push({
+            path: filePath,
+            project: projectDir,
+            filename: file,
+            size: fileStats.size,
+            modified: fileStats.mtime.toISOString()
+          });
+        }
+      }
+    }
+
+    // Sort by modified date (newest first)
+    sessions.sort((a, b) => new Date(b.modified) - new Date(a.modified));
+
+    return { success: true, sessions };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('memory:extract-from-session', async (event, sessionPath, apiKey) => {
+  try {
+    // This is called from the renderer - we just need to read and return the file
+    // The actual extraction happens in the renderer using the service
+    const content = fs.readFileSync(sessionPath, 'utf-8');
+    return { success: true, content };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('memory:get-extraction-state', async () => {
+  try {
+    const stateFile = path.join(userDataPath, 'extracted-memories', 'extraction-state.json');
+
+    if (!fs.existsSync(stateFile)) {
+      return {
+        success: true,
+        state: {
+          lastRun: null,
+          processedFiles: {},
+          inProgress: false
+        }
+      };
+    }
+
+    const content = fs.readFileSync(stateFile, 'utf-8');
+    return { success: true, state: JSON.parse(content) };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('memory:save-extraction-state', async (event, state) => {
+  try {
+    const stateFile = path.join(userDataPath, 'extracted-memories', 'extraction-state.json');
+    fs.writeFileSync(stateFile, JSON.stringify(state, null, 2), 'utf-8');
+    return { success: true };
   } catch (error) {
     return { success: false, error: error.message };
   }

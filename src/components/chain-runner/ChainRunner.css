@@ -18,7 +18,7 @@
 .cr-header h2 {
   font-size: 16px;
   font-weight: 600;
-  color: var(--accent-chain);
+  color: var(--module-chain-runner);
 }
 
 .cr-header-actions {
@@ -31,20 +31,20 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  background: rgba(239, 68, 68, 0.15);
-  color: #ef4444;
+  background: var(--status-error-bg);
+  color: var(--status-error);
   font-size: 12px;
   font-weight: 600;
   padding: 6px 12px;
   border-radius: 6px;
-  border: 1px solid rgba(239, 68, 68, 0.3);
+  border: 1px solid var(--status-error);
 }
 
 .recording-badge::before {
   content: '';
   width: 8px;
   height: 8px;
-  background: #ef4444;
+  background: var(--status-error);
   border-radius: 50%;
   animation: recording-pulse 1s infinite;
 }
@@ -53,13 +53,13 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  background: rgba(239, 68, 68, 0.15);
-  color: #fbbf24;
+  background: var(--status-error-bg);
+  color: var(--status-warning);
   font-size: 11px;
   font-weight: 600;
   padding: 4px 8px;
   border-radius: 4px;
-  border: 1px solid rgba(251, 191, 36, 0.3);
+  border: 1px solid var(--status-warning);
   cursor: help;
 }
 

@@ -1,0 +1,175 @@
+/* ============================================================
+   CARD COMPONENT
+
+   Dark navy card with subtle border, hover effects, and variants.
+   Uses CSS variables exclusively - no hardcoded colors.
+   ============================================================ */
+
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius-lg);
+  transition: all var(--transition-normal);
+  display: flex;
+  flex-direction: column;
+}
+
+/* ========================================
+   VARIANTS
+   ======================================== */
+
+/* Default - standard card */
+.card-default {
+  box-shadow: var(--shadow-sm);
+}
+
+/* Elevated - has stronger shadow */
+.card-elevated {
+  box-shadow: var(--shadow-md);
+  background: var(--bg-elevated);
+}
+
+/* Outlined - emphasized border */
+.card-outlined {
+  border-width: 2px;
+  box-shadow: none;
+}
+
+/* ========================================
+   PADDING VARIANTS
+   ======================================== */
+
+.card-padding-none {
+  padding: 0;
+}
+
+.card-padding-sm {
+  padding: var(--spacing-sm);
+}
+
+.card-padding-md {
+  padding: var(--spacing-md);
+}
+
+.card-padding-lg {
+  padding: var(--spacing-lg);
+}
+
+/* ========================================
+   HOVER EFFECTS
+   ======================================== */
+
+.card-hoverable:hover,
+.card-clickable:hover {
+  border-color: var(--accent-gold);
+  background: var(--bg-elevated);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.card-clickable {
+  cursor: pointer;
+  user-select: none;
+}
+
+.card-clickable:active {
+  transform: translateY(0);
+}
+
+.card-clickable:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--bg-primary), 0 0 0 4px var(--accent-gold);
+}
+
+/* ========================================
+   HEADER
+   ======================================== */
+
+.card-header {
+  padding-bottom: var(--spacing-md);
+  border-bottom: 1px solid var(--border-color);
+  margin-bottom: var(--spacing-md);
+}
+
+/* Override padding when card has padding-none */
+.card-padding-none .card-header {
+  padding: var(--spacing-md);
+  padding-bottom: var(--spacing-md);
+  margin-bottom: 0;
+}
+
+.card-title {
+  margin: 0;
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+  line-height: var(--line-height-tight);
+}
+
+.card-subtitle {
+  margin: var(--spacing-xs) 0 0 0;
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  line-height: var(--line-height-normal);
+}
+
+/* Custom header (no default styling) */
+.card-header-custom {
+  /* Let parent control styling */
+}
+
+/* ========================================
+   CONTENT
+   ======================================== */
+
+.card-content {
+  flex: 1;
+  color: var(--text-secondary);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-normal);
+}
+
+/* Override padding when card has padding-none */
+.card-padding-none .card-content {
+  padding: var(--spacing-md);
+}
+
+/* ========================================
+   FOOTER / ACTIONS
+   ======================================== */
+
+.card-actions {
+  display: flex;
+  gap: var(--spacing-sm);
+  padding-top: var(--spacing-md);
+  border-top: 1px solid var(--border-color);
+  margin-top: var(--spacing-md);
+  justify-content: flex-end;
+  align-items: center;
+}
+
+/* Override padding when card has padding-none */
+.card-padding-none .card-actions {
+  padding: var(--spacing-md);
+  padding-top: var(--spacing-md);
+  margin-top: 0;
+}
+
+/* Custom footer (no default styling) */
+.card-footer-custom {
+  /* Let parent control styling */
+}
+
+/* ========================================
+   RESPONSIVE
+   ======================================== */
+
+@media (max-width: 768px) {
+  .card-title {
+    font-size: var(--font-size-base);
+  }
+
+  .card-actions {
+    flex-wrap: wrap;
+  }
+}

@@ -125,3 +125,192 @@ Architecture decisions, patterns, and feature plans that persist across sessions
 
 - `D:\Reference\a2a-training-research\a2a-training-research.md` - Comprehensive research on synthetic data generation, multi-agent collaboration, RAG best practices
 - `D:\Reference\a2a-training-research\github-repos.md` - 29 curated repositories for A2A training systems
+
+---
+
+## Major Architecture Decision: Complete System Redesign (2025-12-29)
+
+### From "Memory Lane" to "AI Command Center"
+
+**Decision**: Transform from focused "Memory Lane" prototype into comprehensive productivity suite
+
+**Rationale**:
+- Original JFDI system (Andy's personal productivity system) provides proven architecture
+- Vision and Chain Runner already working - need unified integration
+- Memory Lane concept too narrow - expand to full executive assistant
+- Single unified app better than fragmented tools
+
+**Architecture**:
+```
+┌─────────────────────────────────────────────────────────┐
+│                  AI Command Center                       │
+│                    (The Hexagon)                         │
+├─────────────────────────────────────────────────────────┤
+│                                                          │
+│  Brain (Memory Lane)    Eye (Vision)    Network (CRM)   │
+│  ────────────────────   ─────────────   ──────────────  │
+│  • Memory extraction    • Camera feed   • Relationships │
+│  • Entity resolution    • AI analysis   • Connections   │
+│  • Dual retrieval       • Auto-mode     • Freshness     │
+│                                                          │
+│  + Dashboard + Projects + Reminders + Meetings + More   │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+**11 Integrated Modules**:
+1. Dashboard - Daily briefings (auto-generated 8:30 AM)
+2. Projects - Three-tier (Life/Projects/Now)
+3. Reminders - Snooze workflow with energy types
+4. Relationships - CRM with hot/warm/cold freshness
+5. Meetings - Prep sheets, commitment extraction
+6. Knowledge - Second brain, auto-filing
+7. Chat - Claude Code wrapper with Memory Lane bar
+8. Admin - System monitoring, token tracking
+9. Memory Lane - Memory extraction & retrieval (Brain)
+10. Vision - Camera analysis (Eye) [EXISTING]
+11. Chain Runner - A2A RAG training (Network) [EXISTING]
+
+**Technology Stack**:
+- Frontend: React 18 + Vite (keep existing)
+- Desktop: Electron 33 (keep existing)
+- Database: SQLite + sqlite-vss (NEW - vector search)
+- Embeddings: Ollama + mxbai-embed-large (NEW - local, 1024-dim)
+- APIs: Anthropic Claude, OpenAI (keep existing)
+- Icons: lucide-react (NEW - 1000+ clean icons)
+
+**Design Language**:
+- **Visual Trinity**: Hexagon + Brain + Eye + Network
+- **Colors**: Dark navy (#1a1a2e), Gold accents (#ffd700), Pink-Purple-Blue gradients
+- **Icons**: Line art style, 2px stroke, consistent with hexagon motif
+- **Typography**: Modern sans-serif, professional not playful
+
+**Database Schema** (20+ tables):
+- memories (with embeddings BLOB)
+- sessions, entities, entity_occurrences
+- projects, tasks, reminders, snooze_records
+- relationships, interactions, meetings
+- knowledge_items, folders, tags
+- chat_messages, feedback
+
+**Memory System Architecture**:
+- **Extraction**: Parse Claude Code JSONL sessions
+- **Embeddings**: Ollama local, 1024 dimensions
+- **Storage**: SQLite with sqlite-vss for vectors
+- **Retrieval**: Dual mode (entity-based + semantic)
+- **Re-ranking**: Multi-signal (60% similarity, 15% confidence, 10% recency, etc.)
+
+**Implementation Timeline**:
+- 7 phases over 16 weeks
+- Phase 1 (Weeks 1-3): Core Infrastructure
+- Phase 2 (Weeks 4-6): Memory System
+- Phase 3 (Weeks 7-9): Projects & Reminders
+- Phase 4 (Weeks 10-11): Relationships & Meetings
+- Phase 5 (Weeks 12-13): Knowledge & Chat
+- Phase 6 (Weeks 14-15): Dashboard & Admin
+- Phase 7 (Week 16): Integration & Testing
+
+**Documentation Strategy**:
+- 24 spec files with task checkboxes (interactive in VS Code/GitHub)
+- Complete design system (DESIGN-SYSTEM.md)
+- GPT asset generation prompts (for creating matching icons/graphics)
+- Design review checkpoints at end of each phase
+
+**Design System Integration**:
+- Created DESIGN-SYSTEM.md as quick reference for developers
+- All 24 specs link to design system
+- CSS variables spec created (00-CSS-VARIABLES.md)
+- Day 1 of Phase 1: Implement CSS variables (non-negotiable)
+- Design Review Checklist prevents drift
+
+**Git Repository**:
+- Live at: https://github.com/husky2466-codo/ai-command-center
+- Clean history (removed 1000+ old files, videos >50MB)
+- Secure .gitignore (protects API keys, env files, builds)
+
+---
+
+## Design Patterns Established (2025-12-29)
+
+### Color Palette (Locked)
+```css
+/* Backgrounds */
+--bg-primary: #1a1a2e     /* Dark navy - main */
+--bg-secondary: #252540   /* Lighter navy - sections */
+--bg-card: #2d2d4a        /* Card surfaces */
+--bg-elevated: #3a3a5a    /* Hover states */
+
+/* Accents */
+--accent-gold: #ffd700    /* Primary accent, CTAs */
+--accent-gold-hover: #ffed4a
+
+/* Brand Gradient */
+--gradient-pink: #ec4899
+--gradient-purple: #8b5cf6
+--gradient-blue: #3b82f6
+
+/* Text */
+--text-primary: #ffffff
+--text-secondary: #a0a0b0
+--text-muted: #6b6b80
+```
+
+### Icon Guidelines
+- Style: Line art / outline only (NOT filled)
+- Stroke: 2px consistent weight
+- Size: 24x24px for navigation, 20x20px for toolbar
+- Colors: Gray (#a0a0b0) default, Gold (#ffd700) active
+- Source: lucide-react library
+
+### Component Structure Convention
+```
+src/components/<module-name>/
+├── ModuleName.jsx           # Main component
+├── ModuleName.css           # Scoped styles
+├── components/              # Sub-components
+│   ├── SubComponent.jsx
+│   └── SubComponent.css
+└── utils/                   # Module-specific utilities
+    └── helpers.js
+```
+
+### Service Layer Pattern
+```
+src/services/
+├── memoryService.js         # Memory CRUD operations
+├── embeddingService.js      # Ollama integration
+├── databaseService.js       # SQLite wrapper
+└── ...
+```
+
+### Visual Motifs
+- **Hexagon**: Use for badges, containers, accents
+- **Brain**: Memory Lane icon, pink tones
+- **Eye**: Vision icon, blue tones
+- **Network**: Connections icon, purple tones
+
+---
+
+## Known Issues (Updated 2025-12-29)
+
+- Memory Viewer hardcoded paths - ✅ FIXED (2025-12-18)
+- Vision camera race condition - ✅ FIXED (2025-12-18)
+- RAG Export React Error #31 - ✅ FIXED (2025-12-18)
+- Large files in git history blocking push - ✅ FIXED (2025-12-29, clean history created)
+- No design system enforcement - ✅ FIXED (2025-12-29, integrated into all specs)
+
+---
+
+## Tools & Dependencies (2025-12-29)
+
+**Installed**:
+- lucide-react: 59 packages, ~500KB (icons)
+- GitHub CLI (gh): v2.83.2 (authentication)
+
+**To Install** (Phase 1):
+- better-sqlite3: SQLite for Node.js
+- sqlite-vss: Vector similarity search extension
+
+**Development**:
+- GitHub authenticated as: husky2466-codo
+- Repository: https://github.com/husky2466-codo/ai-command-center
