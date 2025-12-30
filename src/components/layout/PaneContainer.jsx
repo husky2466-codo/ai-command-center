@@ -11,7 +11,8 @@ export default function PaneContainer({ paneId, APPS, apiKeys, canSplit, showClo
     closeTabInPane,
     setActiveTabInPane,
     splitPane,
-    closePane
+    closePane,
+    closeAllTabsInPane
   } = useLayout();
 
   const pane = getPane(paneId);
@@ -39,6 +40,10 @@ export default function PaneContainer({ paneId, APPS, apiKeys, canSplit, showClo
     closePane(paneId);
   };
 
+  const handleCloseAllTabs = () => {
+    closeAllTabsInPane(paneId);
+  };
+
   return (
     <div className="pane-container">
       {/* Tab Bar */}
@@ -48,6 +53,13 @@ export default function PaneContainer({ paneId, APPS, apiKeys, canSplit, showClo
             <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/>
           </svg>
         </button>
+
+        {/* Close All Tabs Button */}
+        {tabs.length > 0 && (
+          <button className="close-all-tabs-btn" onClick={handleCloseAllTabs} title="Close All Tabs">
+            Close All
+          </button>
+        )}
 
         <div className="tabs-container">
           {tabs.map(tab => {

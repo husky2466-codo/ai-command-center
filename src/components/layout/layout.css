@@ -74,6 +74,36 @@
   color: var(--text-primary);
 }
 
+.pane-container .close-all-tabs-btn {
+  -webkit-app-region: no-drag;
+  height: 32px;
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #ff9500;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 6px;
+  margin: 4px 8px 4px 0;
+  border: none;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+}
+
+.pane-container .close-all-tabs-btn:hover {
+  background: #e68600;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(255, 149, 0, 0.3);
+}
+
+.pane-container .close-all-tabs-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 1px 4px rgba(255, 149, 0, 0.2);
+}
+
 .pane-container .tabs-container {
   display: flex;
   align-items: stretch;

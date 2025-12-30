@@ -154,6 +154,22 @@ export function LayoutProvider({ children }) {
     return panes.find(pane => pane.id === paneId);
   }, [panes]);
 
+  // Close all tabs in a specific pane
+  const closeAllTabsInPane = useCallback((paneId) => {
+    setPanes(prevPanes => {
+      return prevPanes.map(pane => {
+        if (pane.id === paneId) {
+          return {
+            ...pane,
+            tabs: [],
+            activeTabId: null
+          };
+        }
+        return pane;
+      });
+    });
+  }, []);
+
   const value = {
     panes,
     splitDirection,
@@ -163,6 +179,7 @@ export function LayoutProvider({ children }) {
     splitPane,
     closePane,
     getPane,
+    closeAllTabsInPane,
   };
 
   return (
