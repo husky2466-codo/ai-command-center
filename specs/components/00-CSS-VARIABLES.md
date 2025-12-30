@@ -5,7 +5,7 @@
 **Estimated Effort**: 0.5 days
 **Dependencies**: None (this IS the foundation)
 
-> **Design Reference**: [DESIGN-SYSTEM.md](../DESIGN-SYSTEM.md) | [GPT-ASSET-GENERATION-PROMPTS.md](../../GPT-ASSET-GENERATION-PROMPTS.md)
+> **Design Reference**: [DESIGN-SYSTEM.md](../DESIGN-SYSTEM.md) | [GPT-ASSET-GENERATION-PROMPTS.md](../../docs/planning/GPT-ASSET-GENERATION-PROMPTS.md)
 
 ---
 

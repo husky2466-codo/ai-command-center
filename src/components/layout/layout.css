@@ -1,0 +1,303 @@
+/* ============================================================
+   SPLIT LAYOUT SYSTEM
+   ============================================================ */
+
+.split-layout {
+  height: 100%;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-primary);
+}
+
+/* Ensure react-resizable-panels fills available space */
+.split-layout [data-panel-group] {
+  height: 100%;
+  width: 100%;
+}
+
+.split-layout [data-panel] {
+  height: 100%;
+}
+
+/* ============================================================
+   PANE CONTAINER
+   ============================================================ */
+
+.pane-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  background: var(--bg-primary);
+}
+
+.pane-content {
+  flex: 1;
+  display: flex;
+  width: 100%;
+  overflow: hidden;
+}
+
+/* ============================================================
+   TAB BAR (within pane)
+   ============================================================ */
+
+.pane-container .tab-bar {
+  height: 40px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  align-items: stretch;
+  padding: 0 4px;
+  gap: 2px;
+  -webkit-app-region: drag;
+}
+
+.pane-container .home-btn {
+  -webkit-app-region: no-drag;
+  width: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  color: var(--text-secondary);
+  border-radius: 6px;
+  margin: 4px 4px 4px 0;
+  border: none;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.pane-container .home-btn:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.pane-container .tabs-container {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  overflow-x: auto;
+  flex: 1;
+  -webkit-app-region: no-drag;
+}
+
+.pane-container .tabs-container::-webkit-scrollbar {
+  height: 4px;
+}
+
+.pane-container .tabs-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.pane-container .tabs-container::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 2px;
+}
+
+.pane-container .tab {
+  display: flex;
+  align-items: center;
+  background: var(--bg-primary);
+  border-radius: 8px 8px 0 0;
+  margin-top: 4px;
+  min-width: 120px;
+  max-width: 200px;
+  position: relative;
+}
+
+.pane-container .tab.active {
+  background: var(--bg-primary);
+  border-top: 2px solid var(--tab-accent);
+}
+
+.pane-container .tab:not(.active) {
+  background: var(--bg-tertiary);
+  opacity: 0.7;
+}
+
+.pane-container .tab:not(.active):hover {
+  opacity: 1;
+}
+
+.pane-container .tab-button {
+  flex: 1;
+  background: transparent;
+  color: var(--text-primary);
+  padding: 8px 12px;
+  font-size: 13px;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  border: none;
+  cursor: pointer;
+}
+
+.pane-container .tab-close {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 18px;
+  border-radius: 4px;
+  margin-right: 4px;
+  border: none;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.pane-container .tab-close:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-primary);
+}
+
+/* ============================================================
+   SPLIT CONTROLS
+   ============================================================ */
+
+.split-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 8px;
+  -webkit-app-region: no-drag;
+}
+
+.split-btn,
+.close-pane-btn {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.split-btn:hover,
+.close-pane-btn:hover {
+  background: var(--bg-tertiary);
+  color: var(--accent-primary);
+  border-color: var(--accent-primary);
+}
+
+.close-pane-btn:hover {
+  color: var(--error);
+  border-color: var(--error);
+}
+
+/* ============================================================
+   RESIZE HANDLE
+   ============================================================ */
+
+.resize-handle {
+  position: relative;
+  background: var(--bg-secondary);
+  transition: background var(--transition-fast);
+}
+
+.resize-handle[data-resize-handle-state="hover"],
+.resize-handle[data-resize-handle-state="drag"] {
+  background: var(--accent-primary);
+}
+
+/* Horizontal resize handle (vertical divider) */
+.resize-handle[data-panel-group-direction="horizontal"] {
+  width: 4px;
+  cursor: col-resize;
+}
+
+/* Vertical resize handle (horizontal divider) */
+.resize-handle[data-panel-group-direction="vertical"] {
+  height: 4px;
+  cursor: row-resize;
+}
+
+.resize-handle-inner {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: transparent;
+}
+
+/* ============================================================
+   PANE HOME SCREEN
+   ============================================================ */
+
+.pane-home {
+  flex: 1;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-xl);
+  background: var(--bg-primary);
+}
+
+.pane-home h2 {
+  font-size: var(--font-size-2xl);
+  color: var(--text-primary);
+  margin-bottom: var(--spacing-xl);
+  font-weight: var(--font-weight-semibold);
+}
+
+.app-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--spacing-md);
+  width: 100%;
+  max-width: 1000px;
+}
+
+.app-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius-lg);
+  padding: var(--spacing-lg);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  text-align: center;
+}
+
+.app-card:hover {
+  background: var(--card-hover);
+  border-color: var(--card-accent);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.app-name {
+  font-size: var(--font-size-md);
+  color: var(--text-primary);
+  font-weight: var(--font-weight-medium);
+}
+
+/* ============================================================
+   TAB CONTENT
+   ============================================================ */
+
+.pane-container .tab-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  overflow: hidden;
+}
+
+/* Ensure child components fill the space */
+.pane-container .tab-content > * {
+  flex: 1;
+  width: 100%;
+}

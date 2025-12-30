@@ -13,7 +13,7 @@ This directory contains detailed implementation specifications for the AI Comman
 | Document | Purpose | When to Use |
 |----------|---------|-------------|
 | [DESIGN-SYSTEM.md](DESIGN-SYSTEM.md) | Developer quick reference | While coding - check colors, icons, patterns |
-| [GPT-ASSET-GENERATION-PROMPTS.md](../GPT-ASSET-GENERATION-PROMPTS.md) | Full asset generation guide | Creating new icons, images, branding assets |
+| [GPT-ASSET-GENERATION-PROMPTS.md](../docs/planning/GPT-ASSET-GENERATION-PROMPTS.md) | Full asset generation guide | Creating new icons, images, branding assets |
 | [00-CSS-VARIABLES.md](components/00-CSS-VARIABLES.md) | CSS variables spec | Setting up theme, checking variable names |
 
 ### Visual Identity Summary
@@ -419,5 +419,5 @@ Use this checklist to track overall progress:
 ---
 
 *Generated for AI Command Center v2.0*
-*Based on comprehensive plan from AI-COMMAND-CENTER-PLAN.md*
-*Design system from GPT-ASSET-GENERATION-PROMPTS.md*
+*Based on comprehensive plan from [AI-COMMAND-CENTER-PLAN.md](../docs/planning/AI-COMMAND-CENTER-PLAN.md)*
+*Design system from [GPT-ASSET-GENERATION-PROMPTS.md](../docs/planning/GPT-ASSET-GENERATION-PROMPTS.md)*

@@ -466,3 +466,72 @@ Located in `.claude/commands/`:
 Ready to begin **Phase 1: Core Infrastructure**
 - Day 1: Implement CSS variables from DESIGN-SYSTEM.md
 - Week 1-3: Database setup, sidebar navigation, shared components
+
+---
+
+### 2025-12-29 (Continued) - Theme System & Split View Implementation
+
+**Theme System:**
+- Implemented 6 UI themes: Default, Cipher (Matrix), Voltage (Bumblebee), Evergreen (Forest), Depths (Ocean), Magma (Ember)
+- Created `src/themes/themes.js` - Theme configuration with color values
+- Created `src/themes/ThemeContext.jsx` - React context for theme state management
+- Created `src/components/admin/AppearanceSettings.jsx` - Theme selector UI
+- Themes persist to localStorage
+
+**Terminal Theme Integration:**
+- Updated `Terminal.jsx` to use `useTheme()` hook
+- Terminal now reads CSS variables and updates xterm options when theme changes
+- Updated `Terminal.css` to use CSS variables instead of hardcoded colors
+
+**Split View Feature:**
+- Installed `react-resizable-panels` (v2.1.7)
+- Created new layout system in `src/components/layout/`:
+  - `LayoutContext.jsx` - State management for panes, tabs, split direction
+  - `SplitLayout.jsx` - Main split container using react-resizable-panels
+  - `PaneContainer.jsx` - Individual pane with tab bar and content
+  - `layout.css` - Themed styling for split view
+  - `README.md` - Documentation
+- Features:
+  - Split Right / Split Down buttons (Lucide icons: Columns, Rows)
+  - Independent tabs per pane
+  - Drag-to-resize handles with gold accent on hover
+  - Close pane button (X) to return to single view
+  - Auto-persistence to localStorage
+  - Instance isolation via `instanceId` prop
+
+**CSS Fixes for Full-Width Content:**
+- Added `width: 100%` to: `.split-layout`, `.pane-container`, `.pane-content`, `.tab-content`, `.pane-home`
+- Added panel group and panel data attribute selectors for proper sizing
+
+**Bug Fixes:**
+- Fixed window maximize timing (maximize before show)
+- Fixed blank screen issue (stale Electron process holding single instance lock)
+- Created `cleanup-dev.ps1` script for killing stale processes
+- Added error handlers to `main.cjs` (did-fail-load, crashed, unresponsive)
+
+**Files Created:**
+- `src/themes/themes.js`
+- `src/themes/ThemeContext.jsx`
+- `src/components/admin/AppearanceSettings.jsx`
+- `src/components/layout/LayoutContext.jsx`
+- `src/components/layout/SplitLayout.jsx`
+- `src/components/layout/PaneContainer.jsx`
+- `src/components/layout/layout.css`
+- `src/components/layout/README.md`
+- `cleanup-dev.ps1`
+- `DEBUG-RESOLUTION.md`
+
+**Files Modified:**
+- `src/components/terminal/Terminal.jsx` - Theme integration
+- `src/components/terminal/Terminal.css` - CSS variables
+- `src/App.jsx` - LayoutProvider and SplitLayout integration
+- `electron/main.cjs` - Error handlers, maximize timing
+- `package.json` - Added react-resizable-panels dependency
+
+## Current Status
+
+- **Theme System**: 6 themes fully functional, persists to localStorage
+- **Split View**: Working with full-width content, layout persists
+- **Terminal**: Respects theme changes in real-time
+- **Window**: Starts maximized correctly
+- **Desktop Shortcut**: Updated and working

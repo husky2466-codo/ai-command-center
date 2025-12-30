@@ -66,9 +66,10 @@ Provide your evaluation now:`;
  * @param {string} provider - AI provider (anthropic, openai, ollama)
  * @param {string} apiKey - API key (not needed for Ollama)
  * @param {string} model - Model name
+ * @param {string} ollamaUrl - Ollama endpoint URL (defaults to localhost:11434)
  * @returns {Promise<Object>} Validation scores object
  */
-export async function validateQAPair(question, answer, provider, apiKey, model) {
+export async function validateQAPair(question, answer, provider, apiKey, model, ollamaUrl = 'http://localhost:11434') {
   // Ollama doesn't require an API key (runs locally)
   if (provider !== 'ollama' && !apiKey) {
     return { success: false, error: 'API key not provided' };
@@ -165,7 +166,7 @@ export async function validateQAPair(question, answer, provider, apiKey, model) 
         stream: false
       };
 
-      response = await fetch('http://localhost:11434/api/chat', {
+      response = await fetch(`${ollamaUrl}/api/chat`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

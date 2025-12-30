@@ -19,10 +19,12 @@ import {
   Eye,
   EyeOff,
   Search,
-  Filter
+  Filter,
+  Palette
 } from 'lucide-react';
 import './Admin.css';
 import { adminService } from '../../services/adminService';
+import AppearanceSettings from './AppearanceSettings';
 
 export default function Admin({ apiKeys }) {
   const [activeTab, setActiveTab] = useState('overview');
@@ -334,6 +336,13 @@ export default function Admin({ apiKeys }) {
         >
           <Activity size={18} />
           Debug
+        </button>
+        <button
+          className={`admin-tab ${activeTab === 'appearance' ? 'active' : ''}`}
+          onClick={() => setActiveTab('appearance')}
+        >
+          <Palette size={18} />
+          Appearance
         </button>
       </div>
 
@@ -734,6 +743,11 @@ export default function Admin({ apiKeys }) {
               )}
             </div>
           </div>
+        )}
+
+        {/* Appearance Tab */}
+        {activeTab === 'appearance' && (
+          <AppearanceSettings />
         )}
       </div>
     </div>

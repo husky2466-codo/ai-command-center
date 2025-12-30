@@ -71,7 +71,13 @@ function runMigrations() {
   const migrations = [
     '001_initial',
     '002_vectors',
-    '003_indexes'
+    '003_indexes',
+    '004_accounts',
+    '005_project_fs_path',
+    '006_dgx_spark',
+    '007_email_signatures',
+    '008_email_templates',
+    '009_saved_searches'
   ];
 
   const migrationsDir = path.join(__dirname, 'migrations');

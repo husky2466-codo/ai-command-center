@@ -1,6 +1,7 @@
 /**
- * DashboardService - Aggregates data from all modules for Andy's Daily Briefing
+ * DashboardService - Aggregates data from all modules for Daily Briefing
  * Provides methods to fetch widget data and generate dashboard overview
+ * Personalizes greeting using connected Google account name
  */
 
 import { projectService } from './ProjectService.js';
@@ -8,6 +9,7 @@ import { reminderService } from './reminderService.js';
 import { meetingService } from './meetingService.js';
 import relationshipService from './relationshipService.js';
 import { memoryService } from './memoryService.js';
+import { userService } from './userService.js';
 
 class DashboardService {
   constructor() {
@@ -64,12 +66,12 @@ class DashboardService {
 
   /**
    * Get personalized greeting based on time of day
-   * @returns {Object} Greeting data with message and time
+   * @returns {Promise<Object>} Greeting data with message and time
    */
-  getGreeting() {
+  async getGreeting() {
     const now = new Date();
     const hour = now.getHours();
-    const name = 'Andy'; // Can be made configurable later
+    const name = await userService.getUserName();
 
     let message;
     if (hour < 12) {
@@ -255,7 +257,7 @@ class DashboardService {
   async getWidgetData(type) {
     switch (type) {
       case 'greeting':
-        return this.getGreeting();
+        return await this.getGreeting();
       case 'focus':
         return this.getTodaysFocus();
       case 'meetings':

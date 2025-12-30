@@ -2,7 +2,7 @@
 
 **Quick Reference for Developers**
 
-> Full asset generation details: [GPT-ASSET-GENERATION-PROMPTS.md](../GPT-ASSET-GENERATION-PROMPTS.md)
+> Full asset generation details: [GPT-ASSET-GENERATION-PROMPTS.md](../docs/planning/GPT-ASSET-GENERATION-PROMPTS.md)
 
 ---
 

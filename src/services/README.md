@@ -402,7 +402,7 @@ src/services/
 - [DATABASE-LAYER.md](../../specs/features/DATABASE-LAYER.md) - Database schema
 - [MEMORY-EXTRACTION.md](../../specs/features/MEMORY-EXTRACTION.md) - Memory extraction system
 - [EMBEDDING-SYSTEM.md](../../specs/features/EMBEDDING-SYSTEM.md) - Embedding configuration
-- [AI-COMMAND-CENTER-PLAN.md](../../AI-COMMAND-CENTER-PLAN.md) - Complete system plan
+- [AI-COMMAND-CENTER-PLAN.md](../../docs/planning/AI-COMMAND-CENTER-PLAN.md) - Complete system plan
 
 ---
 

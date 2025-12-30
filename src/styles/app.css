@@ -10,6 +10,14 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  /* Account for fixed sidebar - default to collapsed width */
+  margin-left: var(--sidebar-width-collapsed);
+  transition: margin-left var(--transition-normal);
+}
+
+/* When sidebar is expanded, increase margin */
+.app-container.sidebar-expanded .app-content {
+  margin-left: var(--sidebar-width-expanded);
 }
 
 .app-main {
@@ -18,10 +26,10 @@
   overflow: hidden;
 }
 
-/* Responsive layout for mobile */
+/* Responsive layout for mobile - always collapsed */
 @media (max-width: 768px) {
   .app-content {
-    margin-left: var(--sidebar-width-collapsed);
+    margin-left: var(--sidebar-width-collapsed) !important;
   }
 }
 

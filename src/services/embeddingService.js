@@ -260,28 +260,46 @@ class EmbeddingService {
   /**
    * Convert embedding to BLOB for SQLite storage
    * @param {Float32Array} embedding - Embedding vector
-   * @returns {Buffer} Binary buffer for SQLite BLOB
+   * @returns {Uint8Array} Binary array for SQLite BLOB
    */
   embeddingToBlob(embedding) {
     if (!(embedding instanceof Float32Array)) {
       throw new Error('Embedding must be a Float32Array');
     }
 
-    return Buffer.from(embedding.buffer);
+    // Use Uint8Array which works in both browser and Node.js
+    return new Uint8Array(embedding.buffer);
   }
 
   /**
    * Convert BLOB from SQLite back to embedding
-   * @param {Buffer} blob - Binary buffer from SQLite
+   * @param {Uint8Array|Buffer|ArrayBuffer} blob - Binary data from SQLite
    * @returns {Float32Array} Embedding vector
    */
   blobToEmbedding(blob) {
-    if (!blob || !Buffer.isBuffer(blob)) {
-      throw new Error('Blob must be a Buffer');
+    if (!blob) {
+      throw new Error('Blob cannot be null or undefined');
     }
 
-    // Create Float32Array from buffer
-    return new Float32Array(blob.buffer, blob.byteOffset, blob.length / 4);
+    // Handle different types that might come from SQLite
+    let arrayBuffer;
+
+    if (blob instanceof ArrayBuffer) {
+      arrayBuffer = blob;
+    } else if (blob instanceof Uint8Array) {
+      arrayBuffer = blob.buffer.slice(blob.byteOffset, blob.byteOffset + blob.byteLength);
+    } else if (typeof Buffer !== 'undefined' && Buffer.isBuffer(blob)) {
+      // Node.js Buffer (in case running in Electron main or with polyfill)
+      arrayBuffer = blob.buffer.slice(blob.byteOffset, blob.byteOffset + blob.byteLength);
+    } else if (blob.buffer) {
+      // Any TypedArray
+      arrayBuffer = blob.buffer.slice(blob.byteOffset, blob.byteOffset + blob.byteLength);
+    } else {
+      throw new Error('Blob must be an ArrayBuffer, Uint8Array, or Buffer');
+    }
+
+    // Create Float32Array from the array buffer
+    return new Float32Array(arrayBuffer);
   }
 
   /**
@@ -307,9 +325,9 @@ class EmbeddingService {
 
     for (const candidate of candidates) {
       // Convert BLOB to embedding if needed
-      const candidateEmbedding = Buffer.isBuffer(candidate.embedding)
-        ? this.blobToEmbedding(candidate.embedding)
-        : candidate.embedding;
+      const candidateEmbedding = (candidate.embedding instanceof Float32Array)
+        ? candidate.embedding
+        : this.blobToEmbedding(candidate.embedding);
 
       // Calculate similarity
       const similarity = this.cosineSimilarity(queryEmbedding, candidateEmbedding);

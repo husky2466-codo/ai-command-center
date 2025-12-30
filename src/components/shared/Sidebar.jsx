@@ -7,12 +7,17 @@ import {
   Calendar,
   BookOpen,
   MessageSquare,
+  Mail,
   Settings,
   Brain,
   Camera,
   Workflow,
+  Terminal,
+  Server,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  User,
+  Contact
 } from 'lucide-react';
 import './Sidebar.css';
 
@@ -24,8 +29,11 @@ const NAVIGATION_SECTIONS = [
       { id: 'projects', name: 'Projects', icon: FolderKanban, accent: 'var(--module-projects)' },
       { id: 'reminders', name: 'Reminders', icon: Bell, accent: 'var(--module-reminders)' },
       { id: 'relationships', name: 'Relationships', icon: Users, accent: 'var(--module-relationships)' },
+      { id: 'contacts', name: 'Contacts', icon: Contact, accent: '#0f9d58' },
       { id: 'meetings', name: 'Meetings', icon: Calendar, accent: 'var(--module-meetings)' },
-      { id: 'knowledge', name: 'Knowledge', icon: BookOpen, accent: 'var(--module-knowledge)' }
+      { id: 'calendar', name: 'Calendar', icon: Calendar, accent: '#4285f4' },
+      { id: 'knowledge', name: 'Knowledge', icon: BookOpen, accent: 'var(--module-knowledge)' },
+      { id: 'email', name: 'Email', icon: Mail, accent: '#ea4335' }
     ]
   },
   {
@@ -39,23 +47,43 @@ const NAVIGATION_SECTIONS = [
     items: [
       { id: 'memory', name: 'Memory Lane', icon: Brain, accent: 'var(--module-memory-lane)', special: 'brain' },
       { id: 'vision', name: 'Vision', icon: Camera, accent: 'var(--module-vision)', special: 'eye' },
-      { id: 'chain', name: 'Chain Runner', icon: Workflow, accent: 'var(--module-chain-runner)', special: 'network' }
+      { id: 'chain', name: 'Chain Runner', icon: Workflow, accent: 'var(--module-chain-runner)', special: 'network' },
+      { id: 'terminal', name: 'Terminal', icon: Terminal, accent: '#22c55e' },
+      { id: 'dgx-spark', name: 'DGX Spark', icon: Server, accent: 'var(--module-dgx)' }
     ]
   },
   {
     title: 'SYSTEM',
     items: [
+      { id: 'accounts', name: 'Accounts', icon: User, accent: 'var(--accent)' },
       { id: 'admin', name: 'Admin', icon: Settings, accent: 'var(--module-admin)' }
     ]
   }
 ];
 
-export default function Sidebar({ activeModule, onNavigate, onOpenApp }) {
-  const [isCollapsed, setIsCollapsed] = useState(false);
+export default function Sidebar({ activeModule, onNavigate, onOpenApp, isCollapsed, onToggleCollapse }) {
+  // Use controlled state if provided, otherwise internal state
+  const [internalCollapsed, setInternalCollapsed] = useState(true); // Default to collapsed
+  const collapsed = isCollapsed !== undefined ? isCollapsed : internalCollapsed;
+
+  const handleToggle = () => {
+    if (onToggleCollapse) {
+      onToggleCollapse(!collapsed);
+    } else {
+      setInternalCollapsed(!internalCollapsed);
+    }
+  };
 
   const handleItemClick = (item) => {
+    // Auto-collapse sidebar after selection
+    if (onToggleCollapse) {
+      onToggleCollapse(true); // Collapse
+    } else {
+      setInternalCollapsed(true);
+    }
+
     // All modules now use the openApp system
-    if (['memory', 'vision', 'chain', 'dashboard', 'admin', 'projects', 'reminders', 'relationships', 'meetings', 'knowledge', 'chat'].includes(item.id)) {
+    if (['memory', 'vision', 'chain', 'terminal', 'dgx-spark', 'dashboard', 'admin', 'projects', 'reminders', 'relationships', 'contacts', 'meetings', 'calendar', 'knowledge', 'chat', 'email', 'accounts'].includes(item.id)) {
       onOpenApp?.(item.id);
     } else {
       // Fallback for any future modules
@@ -71,16 +99,16 @@ export default function Sidebar({ activeModule, onNavigate, onOpenApp }) {
   };
 
   return (
-    <aside className={`sidebar ${isCollapsed ? 'sidebar-collapsed' : ''}`}>
+    <aside className={`sidebar ${collapsed ? 'sidebar-collapsed' : ''}`}>
       {/* Collapse Toggle */}
       <div className="sidebar-header">
         <button
           className="sidebar-toggle"
-          onClick={() => setIsCollapsed(!isCollapsed)}
-          title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          onClick={handleToggle}
+          title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         >
-          {isCollapsed ? <ChevronRight size={20} /> : <ChevronLeft size={20} />}
+          {collapsed ? <ChevronRight size={20} /> : <ChevronLeft size={20} />}
         </button>
       </div>
 
@@ -88,7 +116,7 @@ export default function Sidebar({ activeModule, onNavigate, onOpenApp }) {
       <nav className="sidebar-nav">
         {NAVIGATION_SECTIONS.map((section, sectionIdx) => (
           <div key={section.title} className="sidebar-section">
-            {!isCollapsed && (
+            {!collapsed && (
               <div className="sidebar-section-title">{section.title}</div>
             )}
             <ul className="sidebar-items">
@@ -102,7 +130,7 @@ export default function Sidebar({ activeModule, onNavigate, onOpenApp }) {
                       className={`sidebar-item ${isActive ? 'sidebar-item-active' : ''} ${item.special ? `sidebar-item-${item.special}` : ''}`}
                       onClick={() => handleItemClick(item)}
                       onKeyDown={(e) => handleKeyDown(e, item)}
-                      title={isCollapsed ? item.name : ''}
+                      title={collapsed ? item.name : ''}
                       aria-label={item.name}
                       aria-current={isActive ? 'page' : undefined}
                       style={{
@@ -114,7 +142,7 @@ export default function Sidebar({ activeModule, onNavigate, onOpenApp }) {
                         size={24}
                         strokeWidth={2}
                       />
-                      {!isCollapsed && (
+                      {!collapsed && (
                         <span className="sidebar-item-label">{item.name}</span>
                       )}
                       {isActive && <div className="sidebar-item-indicator" />}

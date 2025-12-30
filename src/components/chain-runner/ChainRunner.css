@@ -166,6 +166,29 @@
   min-height: 60px;
 }
 
+/* Endpoint Selector */
+.endpoint-selector {
+  position: relative;
+}
+
+.endpoint-selector select {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  padding: 8px;
+  border-radius: 6px;
+}
+
+.dgx-indicator {
+  color: #22c55e;
+  font-size: 0.85rem;
+  font-weight: 500;
+  margin-left: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
 .cr-add-agent {
   width: calc(50% - 8px);
   min-width: 400px;

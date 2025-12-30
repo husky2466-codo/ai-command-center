@@ -8,54 +8,85 @@
    - specs/DESIGN-SYSTEM.md
    - GPT-ASSET-GENERATION-PROMPTS.md
 
+   Theme System:
+   - Themes are applied via ThemeContext (sets values dynamically)
+   - Default values below are overridden when theme is selected
+   - See src/themes/themes.js for theme definitions
+
    ============================================================ */
 
 :root {
   /* ========================================
-     BACKGROUNDS
-     Dark navy palette - never use light backgrounds
+     THEME-CONTROLLED COLORS
+     These are set dynamically by the theme system
      ======================================== */
-  --bg-primary: #1a1a2e;      /* Main app background */
-  --bg-secondary: #252540;    /* Section backgrounds, sidebar */
-  --bg-card: #2d2d4a;         /* Card surfaces */
-  --bg-elevated: #3a3a5a;     /* Hover states, elevated elements */
-  --bg-input: #12121c;        /* Input field backgrounds */
+  --bg-primary: #1a1a2e;
+  --bg-secondary: #16213e;
+  --bg-tertiary: #0f1419;
+  --accent-primary: #ffd700;
+  --accent-secondary: #6366f1;
+  --text-primary: #ffffff;
+  --text-secondary: #a0a0a0;
+  --text-accent: #ffd700;
+  --border-primary: #2a2a3e;
+  --border-accent: #ffd700;
+  --sidebar-bg: #0f0f1e;
+  --sidebar-hover: #1f1f2e;
+  --sidebar-active: #2a2a3e;
+  --card-bg: #16213e;
+  --card-hover: #1a2642;
+  --input-bg: #0f1419;
+  --input-border: #2a2a3e;
+  --input-focus: #ffd700;
+  --success: #10b981;
+  --warning: #f59e0b;
+  --error: #ef4444;
+  --info: #3b82f6;
+  --gradient-start: #ec4899;
+  --gradient-mid: #8b5cf6;
+  --gradient-end: #3b82f6;
 
   /* ========================================
-     PRIMARY ACCENT - GOLD
-     Use for CTAs, highlights, active states
+     LEGACY VARIABLES (for backward compatibility)
+     Map to new theme variables
      ======================================== */
-  --accent-gold: #ffd700;
-  --accent-gold-hover: #ffed4a;
-  --accent-gold-dim: #b89800;
+  --bg-card: var(--card-bg);
+  --bg-elevated: var(--card-hover);
+  --bg-input: var(--input-bg);
+
+  /* ========================================
+     PRIMARY ACCENT - GOLD (backward compatibility)
+     Use accent-primary instead for theme support
+     ======================================== */
+  --accent-gold: var(--accent-primary);
+  --accent-gold-hover: var(--accent-primary);
+  --accent-gold-dim: var(--accent-primary);
 
   /* ========================================
      BRAND GRADIENT (for icons/branding only)
      Pink -> Purple -> Blue (diagonal)
      ======================================== */
-  --gradient-pink: #ec4899;
-  --gradient-purple: #8b5cf6;
-  --gradient-blue: #3b82f6;
-  --brand-gradient: linear-gradient(135deg, var(--gradient-pink), var(--gradient-purple), var(--gradient-blue));
+  --gradient-pink: var(--gradient-start);
+  --gradient-purple: var(--gradient-mid);
+  --gradient-blue: var(--gradient-end);
+  --brand-gradient: linear-gradient(135deg, var(--gradient-start), var(--gradient-mid), var(--gradient-end));
 
   /* ========================================
-     TEXT COLORS
+     TEXT COLORS (legacy - some not theme-controlled)
      ======================================== */
-  --text-primary: #ffffff;     /* Headings, important text */
-  --text-secondary: #a0a0b0;   /* Body text */
-  --text-muted: #6b6b80;       /* Labels, hints, disabled */
-  --text-inverse: #000000;     /* Text on gold backgrounds */
+  --text-muted: #6b6b80;       /* Labels, hints, disabled (not theme-controlled) */
+  --text-inverse: #000000;     /* Text on gold backgrounds (not theme-controlled) */
 
   /* ========================================
-     STATUS COLORS
+     STATUS COLORS (mapped to theme variables)
      ======================================== */
-  --status-success: #22c55e;
+  --status-success: var(--success);
   --status-success-bg: rgba(34, 197, 94, 0.1);
-  --status-warning: #f59e0b;
+  --status-warning: var(--warning);
   --status-warning-bg: rgba(245, 158, 11, 0.1);
-  --status-error: #ef4444;
+  --status-error: var(--error);
   --status-error-bg: rgba(239, 68, 68, 0.1);
-  --status-info: #3b82f6;
+  --status-info: var(--info);
   --status-info-bg: rgba(59, 130, 246, 0.1);
 
   /* ========================================
@@ -105,13 +136,14 @@
   --module-vision: #8b5cf6;
   --module-chain-runner: #3b82f6;
   --module-admin: #64748b;
+  --module-dgx: #22c55e;
 
   /* ========================================
      BORDERS & OUTLINES
      ======================================== */
-  --border-color: #2a2a4a;
-  --border-color-hover: #3d3d60;
-  --border-color-focus: var(--accent-gold);
+  --border-color: var(--border-primary);
+  --border-color-hover: var(--border-accent);
+  --border-color-focus: var(--accent-primary);
   --border-radius-sm: 4px;
   --border-radius-md: 6px;
   --border-radius-lg: 8px;
@@ -190,6 +222,11 @@
      ======================================== */
   --sidebar-width-collapsed: 64px;
   --sidebar-width-expanded: 240px;
+
+  /* ========================================
+     TAB BAR
+     ======================================== */
+  --tab-height: 40px;
 
   /* ========================================
      ICON SPECIFICATIONS

@@ -2,7 +2,7 @@
  * RelationshipService - CRM and contact management
  *
  * Handles contacts, groups, interactions, and freshness tracking.
- * Implements Andy's Freshness System for relationship maintenance.
+ * Implements Freshness System for relationship maintenance.
  */
 
 import { BaseService } from './BaseService.js';

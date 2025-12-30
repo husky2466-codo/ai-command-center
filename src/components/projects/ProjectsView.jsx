@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { FolderKanban, ChevronDown, ChevronRight, Edit2, Trash2, Calendar, Target } from 'lucide-react';
+import { FolderKanban, ChevronDown, ChevronRight, Edit2, Trash2, Calendar, Target, Eye, RefreshCw } from 'lucide-react';
 import { projectService } from '../../services/ProjectService';
 import { PROJECT_STATUS } from '../../constants/energyTypes';
 import Card from '../shared/Card';
@@ -132,8 +132,36 @@ export default function ProjectsView({
 }
 
 function ProjectCard({ project, onClick, onEdit, onDelete }) {
+  const [isWatching, setIsWatching] = useState(false);
+  const [syncing, setSyncing] = useState(false);
   const progressPercent = Math.round(project.progress || 0);
   const isOverdue = project.deadline && new Date(project.deadline) < new Date();
+
+  useEffect(() => {
+    checkWatchingStatus();
+  }, [project.id]);
+
+  const checkWatchingStatus = async () => {
+    if (project.fs_path) {
+      const watching = await projectService.isWatching(project.id);
+      setIsWatching(watching);
+    }
+  };
+
+  const handleSyncProgress = async (e) => {
+    e.stopPropagation();
+    if (!project.fs_path || syncing) return;
+
+    try {
+      setSyncing(true);
+      await projectService.syncProgress(project.id, project.fs_path);
+      // The progress update event will trigger a reload
+    } catch (error) {
+      console.error('Failed to sync progress:', error);
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   return (
     <Card
@@ -147,6 +175,25 @@ function ProjectCard({ project, onClick, onEdit, onDelete }) {
           <div className="project-card-title-row">
             <h3 className="project-card-title">{project.name}</h3>
             <div className="project-card-actions">
+              {/* Watching indicator */}
+              {isWatching && (
+                <div className="project-watching-indicator" title="File watcher active">
+                  <Eye size={14} className="watching-icon" />
+                </div>
+              )}
+
+              {/* Manual sync button */}
+              {project.fs_path && (
+                <button
+                  className={`project-action-btn ${syncing ? 'syncing' : ''}`}
+                  onClick={handleSyncProgress}
+                  title="Sync progress from filesystem"
+                  disabled={syncing}
+                >
+                  <RefreshCw size={16} className={syncing ? 'spinning' : ''} />
+                </button>
+              )}
+
               <button
                 className="project-action-btn"
                 onClick={onEdit}

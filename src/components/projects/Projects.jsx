@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FolderKanban, LayoutGrid, List, CheckSquare, Plus } from 'lucide-react';
+import { FolderKanban, LayoutGrid, List, CheckSquare, Plus, FolderInput } from 'lucide-react';
 import { projectService } from '../../services/ProjectService';
 import LifeView from './LifeView';
 import ProjectsView from './ProjectsView';
@@ -7,6 +7,7 @@ import NowView from './NowView';
 import SpaceModal from './SpaceModal';
 import ProjectModal from './ProjectModal';
 import TaskModal from './TaskModal';
+import ImportProjectsModal from './ImportProjectsModal';
 import Button from '../shared/Button';
 import './Projects.css';
 
@@ -29,10 +30,22 @@ export default function Projects() {
   const [spaceModalOpen, setSpaceModalOpen] = useState(false);
   const [projectModalOpen, setProjectModalOpen] = useState(false);
   const [taskModalOpen, setTaskModalOpen] = useState(false);
+  const [importModalOpen, setImportModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
 
   useEffect(() => {
     loadData();
+
+    // Subscribe to real-time progress updates
+    const unsubscribe = projectService.onProgressUpdate((updateData) => {
+      console.log('[Projects] Progress update received:', updateData);
+      // Reload data when progress updates
+      loadData();
+    });
+
+    return () => {
+      unsubscribe();
+    };
   }, []);
 
   const loadData = async () => {
@@ -47,6 +60,17 @@ export default function Projects() {
       setSpaces(spacesData);
       setProjects(projectsData);
       setTasks(tasksData);
+
+      // Auto-start watchers for projects with fs_path
+      for (const project of projectsData) {
+        if (project.fs_path && project.status === 'active_focus') {
+          const isWatching = await projectService.isWatching(project.id);
+          if (!isWatching) {
+            console.log(`[Projects] Auto-starting watcher for: ${project.name}`);
+            await projectService.startWatching(project.id, project.fs_path);
+          }
+        }
+      }
     } catch (error) {
       console.error('Failed to load project data:', error);
     } finally {
@@ -180,6 +204,22 @@ export default function Projects() {
     }
   };
 
+  const handleImportProjects = async (projectsData) => {
+    try {
+      for (const projectData of projectsData) {
+        await projectService.createProject(projectData);
+      }
+      await loadData();
+    } catch (error) {
+      console.error('Failed to import projects:', error);
+      throw error;
+    }
+  };
+
+  const handleOpenImportModal = () => {
+    setImportModalOpen(true);
+  };
+
   const getViewConfig = () => {
     switch (currentView) {
       case VIEWS.LIFE:
@@ -263,6 +303,17 @@ export default function Projects() {
             </button>
           </div>
 
+          {/* Import Button (only show in Projects view) */}
+          {currentView === VIEWS.PROJECTS && (
+            <Button
+              variant="secondary"
+              icon={<FolderInput size={18} />}
+              onClick={handleOpenImportModal}
+            >
+              Import from D:\Projects
+            </Button>
+          )}
+
           {/* Create Button */}
           <Button
             variant="primary"
@@ -344,6 +395,14 @@ export default function Projects() {
             setEditingItem(null);
           }}
           onSave={handleTaskSaved}
+        />
+      )}
+
+      {importModalOpen && (
+        <ImportProjectsModal
+          spaces={spaces}
+          onClose={() => setImportModalOpen(false)}
+          onImport={handleImportProjects}
         />
       )}
     </div>

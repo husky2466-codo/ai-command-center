@@ -371,7 +371,7 @@ export async function getAllTags() {
   }
 
   const articles = await dbQuery(
-    'SELECT tags FROM knowledge_articles WHERE tags IS NOT NULL AND tags != "[]"'
+    "SELECT tags FROM knowledge_articles WHERE tags IS NOT NULL AND tags != '[]'"
   );
 
   const tagSet = new Set();

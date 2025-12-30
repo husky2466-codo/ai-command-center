@@ -102,7 +102,7 @@ Generate the ${count} prompts now:`;
  * Generate prompts using AI API
  */
 export async function generatePrompts(options) {
-  const { topic, category, count, provider, apiKey, model, existingTopics = [] } = options;
+  const { topic, category, count, provider, apiKey, model, existingTopics = [], ollamaUrl = 'http://localhost:11434' } = options;
 
   // Ollama doesn't require an API key (runs locally)
   if (provider !== 'ollama' && !apiKey) {
@@ -200,7 +200,7 @@ export async function generatePrompts(options) {
         stream: false
       };
 
-      response = await fetch('http://localhost:11434/api/chat', {
+      response = await fetch(`${ollamaUrl}/api/chat`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

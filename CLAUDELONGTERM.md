@@ -314,3 +314,143 @@ src/services/
 **Development**:
 - GitHub authenticated as: husky2466-codo
 - Repository: https://github.com/husky2466-codo/ai-command-center
+
+---
+
+## Theme System (Implemented 2025-12-29)
+
+### Available Themes
+1. **Default** - Dark navy with gold accents (original)
+2. **Cipher** - Matrix-style green on black
+3. **Voltage** - Bumblebee yellow/black
+4. **Evergreen** - Forest green tones
+5. **Depths** - Ocean blue theme
+6. **Magma** - Ember/fire orange-red
+
+### Theme Architecture
+- `src/themes/themes.js` - Theme definitions with CSS variable values
+- `src/themes/ThemeContext.jsx` - React context provider
+- `useTheme()` hook returns: `{ currentTheme, setTheme, theme }`
+- Persistence: localStorage key `ai-command-center-theme`
+- Application: CSS variables applied to `:root` via `applyTheme()`
+
+### Theme Integration Pattern
+```jsx
+import { useTheme } from '../../themes/ThemeContext';
+const { currentTheme } = useTheme();
+
+// For dynamic updates (like xterm.js):
+useEffect(() => {
+  const bgColor = getCSSVar('--bg-primary');
+  // Apply to component
+}, [currentTheme]);
+```
+
+---
+
+## Split View System (Implemented 2025-12-29)
+
+### Library Choice
+- **react-resizable-panels** (v2.1.7) - Lightweight, actively maintained
+- NOT react-split-pane (abandoned 2+ years)
+- NOT allotment (larger bundle, manual persistence)
+- NOT golden-layout (100KB+, overkill)
+
+### Architecture
+```
+src/components/layout/
+├── LayoutContext.jsx    # State: panes[], splitDirection, persistence
+├── SplitLayout.jsx      # Panel container with resize handles
+├── PaneContainer.jsx    # Tab bar + content area per pane
+└── layout.css           # Themed styling
+```
+
+### State Shape
+```js
+{
+  panes: [
+    { id: 'pane-1', tabs: [...], activeTabId: 'tab-1' },
+    { id: 'pane-2', tabs: [...], activeTabId: 'tab-2' }
+  ],
+  splitDirection: 'horizontal' | 'vertical' | null
+}
+```
+
+### Key Features
+- Maximum 2 panes (can extend to grid in future)
+- Each pane has independent tab management
+- Layout auto-saves to localStorage: `ai-command-center-layout`
+- Component instances isolated via `instanceId` prop
+- Split controls only show when 1 pane exists
+
+### CSS Requirements for Full-Width Content
+All containers need `width: 100%`:
+- `.split-layout`
+- `.pane-container`
+- `.pane-content`
+- `.tab-content`
+- Panel data attributes: `[data-panel-group]`, `[data-panel]`
+
+---
+
+## Integrated Terminal (Implemented 2025-12-29)
+
+### Technology
+- **xterm.js** (@xterm/xterm v6.0.0) - Terminal emulator
+- **node-pty** (v1.1.0) - Native PTY for Windows/Mac/Linux
+- **@xterm/addon-fit** - Auto-resize terminal to container
+
+### IPC Channels
+- `pty:create` - Create new PTY process, returns terminalId
+- `pty:write` - Send input to PTY
+- `pty:resize` - Resize PTY dimensions
+- `pty:kill` - Terminate PTY process
+- `pty:data` - Receive output from PTY (event-based)
+
+### Theme Integration
+Terminal reads CSS variables on init and watches for theme changes:
+```jsx
+const { currentTheme } = useTheme();
+
+useEffect(() => {
+  if (xtermRef.current) {
+    xtermRef.current.options.theme = {
+      background: getCSSVar('--bg-primary'),
+      foreground: getCSSVar('--text-primary'),
+      cursor: getCSSVar('--accent-primary'),
+      // ...
+    };
+  }
+}, [currentTheme]);
+```
+
+### Build Configuration
+Native modules require special handling in electron-builder:
+```json
+"asarUnpack": [
+  "node_modules/better-sqlite3/**/*",
+  "node_modules/node-pty/**/*",
+  "node_modules/bindings/**/*"
+],
+"npmRebuild": false
+```
+
+---
+
+## Known Issues (Updated 2025-12-29)
+
+- Stale Electron process can block new instances (single instance lock)
+  - Solution: Run `cleanup-dev.ps1` to kill all Node/Electron processes
+  - File: `D:\Projects\ai-command-center\cleanup-dev.ps1`
+- Window maximize must happen BEFORE show to prevent flash
+  - Fixed in `main.cjs`: `mainWindow.maximize()` then `mainWindow.show()`
+
+---
+
+## Development Scripts (2025-12-29)
+
+### cleanup-dev.ps1
+Kills stale Electron/Node processes when app won't start:
+```powershell
+powershell -ExecutionPolicy Bypass -File cleanup-dev.ps1
+```

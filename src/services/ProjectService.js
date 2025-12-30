@@ -1,5 +1,5 @@
 /**
- * ProjectService - Business logic for Andy's three-tier project system
+ * ProjectService - Business logic for three-tier project system
  * Handles Spaces, Projects, and Tasks with energy-based task management
  */
 
@@ -177,15 +177,16 @@ class ProjectService {
     description,
     status = 'on_deck',
     deadline = null,
-    planning_notes = null
+    planning_notes = null,
+    fs_path = null
   }) {
     const id = uuidv4();
     const now = new Date().toISOString();
 
     await dataService.run(
-      `INSERT INTO projects (id, space_id, name, description, status, progress, deadline, planning_notes, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, ?)`,
-      [id, space_id, name, description, status, deadline, planning_notes, now, now]
+      `INSERT INTO projects (id, space_id, name, description, status, progress, deadline, planning_notes, fs_path, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?)`,
+      [id, space_id, name, description, status, deadline, planning_notes, fs_path, now, now]
     );
 
     return await this.getProject(id);
@@ -199,7 +200,8 @@ class ProjectService {
       status,
       progress,
       deadline,
-      planning_notes
+      planning_notes,
+      fs_path
     } = updates;
     const now = new Date().toISOString();
 
@@ -233,6 +235,10 @@ class ProjectService {
     if (planning_notes !== undefined) {
       fields.push('planning_notes = ?');
       values.push(planning_notes);
+    }
+    if (fs_path !== undefined) {
+      fields.push('fs_path = ?');
+      values.push(fs_path);
     }
 
     fields.push('updated_at = ?');
@@ -487,6 +493,186 @@ class ProjectService {
     query += ' ORDER BY t.sort_order ASC, t.created_at DESC';
 
     return await dataService.query(query, params);
+  }
+
+  async getTasksByStatus(status) {
+    // Map 'active' to non-completed tasks (for dashboard compatibility)
+    if (status === 'active') {
+      return await dataService.query(
+        `SELECT t.*, p.name as project_name
+         FROM tasks t
+         LEFT JOIN projects p ON t.project_id = p.id
+         WHERE t.status != 'completed'
+         ORDER BY t.sort_order ASC, t.created_at DESC`
+      );
+    }
+
+    return await dataService.query(
+      `SELECT t.*, p.name as project_name
+       FROM tasks t
+       LEFT JOIN projects p ON t.project_id = p.id
+       WHERE t.status = ?
+       ORDER BY t.sort_order ASC, t.created_at DESC`,
+      [status]
+    );
+  }
+
+  // ============================================================================
+  // PROJECT WATCHER OPERATIONS
+  // ============================================================================
+
+  /**
+   * Start watching a project's filesystem directory for changes
+   * @param {string} projectId - UUID of the project
+   * @param {string} fsPath - Filesystem path to watch
+   * @returns {Promise<boolean>} Success status
+   */
+  async startWatching(projectId, fsPath) {
+    if (!window.electronAPI?.projectStartWatching) {
+      console.warn('[ProjectService] Project watcher not available (not running in Electron)');
+      return false;
+    }
+
+    try {
+      const result = await window.electronAPI.projectStartWatching(projectId, fsPath);
+      return result?.success && result?.data?.watching;
+    } catch (err) {
+      console.error('[ProjectService] Failed to start watching:', err);
+      return false;
+    }
+  }
+
+  /**
+   * Stop watching a project
+   * @param {string} projectId - UUID of the project
+   * @returns {Promise<boolean>} Success status
+   */
+  async stopWatching(projectId) {
+    if (!window.electronAPI?.projectStopWatching) {
+      console.warn('[ProjectService] Project watcher not available (not running in Electron)');
+      return false;
+    }
+
+    try {
+      const result = await window.electronAPI.projectStopWatching(projectId);
+      return result?.success && result?.data?.stopped;
+    } catch (err) {
+      console.error('[ProjectService] Failed to stop watching:', err);
+      return false;
+    }
+  }
+
+  /**
+   * Get recent file activity for a project
+   * @param {string} projectId - UUID of the project
+   * @param {number} limit - Maximum number of entries
+   * @returns {Promise<Array>} Activity entries
+   */
+  async getActivity(projectId, limit = 20) {
+    if (!window.electronAPI?.projectGetActivity) {
+      console.warn('[ProjectService] Project watcher not available (not running in Electron)');
+      return [];
+    }
+
+    try {
+      const result = await window.electronAPI.projectGetActivity(projectId, limit);
+      return result?.success ? result.data : [];
+    } catch (err) {
+      console.error('[ProjectService] Failed to get activity:', err);
+      return [];
+    }
+  }
+
+  /**
+   * Get current metrics for a watched project
+   * @param {string} projectId - UUID of the project
+   * @returns {Promise<Object|null>} Metrics or null
+   */
+  async getMetrics(projectId) {
+    if (!window.electronAPI?.projectGetMetrics) {
+      console.warn('[ProjectService] Project watcher not available (not running in Electron)');
+      return null;
+    }
+
+    try {
+      const result = await window.electronAPI.projectGetMetrics(projectId);
+      return result?.success ? result.data : null;
+    } catch (err) {
+      console.error('[ProjectService] Failed to get metrics:', err);
+      return null;
+    }
+  }
+
+  /**
+   * Manually sync progress for a project (even if not watched)
+   * @param {string} projectId - UUID of the project
+   * @param {string} fsPath - Filesystem path
+   * @returns {Promise<Object|null>} Progress and metrics or null
+   */
+  async syncProgress(projectId, fsPath) {
+    if (!window.electronAPI?.projectSyncProgress) {
+      console.warn('[ProjectService] Project watcher not available (not running in Electron)');
+      return null;
+    }
+
+    try {
+      const result = await window.electronAPI.projectSyncProgress(projectId, fsPath);
+      return result?.success ? result.data : null;
+    } catch (err) {
+      console.error('[ProjectService] Failed to sync progress:', err);
+      return null;
+    }
+  }
+
+  /**
+   * Check if a project is being watched
+   * @param {string} projectId - UUID of the project
+   * @returns {Promise<boolean>} True if watched
+   */
+  async isWatching(projectId) {
+    if (!window.electronAPI?.projectIsWatching) {
+      return false;
+    }
+
+    try {
+      const result = await window.electronAPI.projectIsWatching(projectId);
+      return result?.success && result?.data?.watching;
+    } catch (err) {
+      console.error('[ProjectService] Failed to check watching status:', err);
+      return false;
+    }
+  }
+
+  /**
+   * Get list of all watched project IDs
+   * @returns {Promise<Array<string>>} Project IDs
+   */
+  async getWatchedProjects() {
+    if (!window.electronAPI?.projectGetWatchedProjects) {
+      return [];
+    }
+
+    try {
+      const result = await window.electronAPI.projectGetWatchedProjects();
+      return result?.success ? result.data : [];
+    } catch (err) {
+      console.error('[ProjectService] Failed to get watched projects:', err);
+      return [];
+    }
+  }
+
+  /**
+   * Subscribe to real-time progress updates
+   * @param {function} callback - Callback function to receive updates
+   * @returns {function} Cleanup function to unsubscribe
+   */
+  onProgressUpdate(callback) {
+    if (!window.electronAPI?.onProjectProgressUpdated) {
+      console.warn('[ProjectService] Progress updates not available (not running in Electron)');
+      return () => {};
+    }
+
+    return window.electronAPI.onProjectProgressUpdated(callback);
   }
 }
 

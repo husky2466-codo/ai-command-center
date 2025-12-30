@@ -1,8 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import Sidebar from './components/shared/Sidebar';
-import HomeScreen from './components/shared/HomeScreen';
-import TabNavigation from './components/shared/TabNavigation';
-import ErrorBoundary from './components/shared/ErrorBoundary';
 import MemoryViewer from './components/memory-viewer/MemoryViewer';
 import VisionApp from './components/vision/VisionApp';
 import ChainRunner from './components/chain-runner/ChainRunner';
@@ -15,6 +12,15 @@ import Meetings from './components/meetings/Meetings';
 import Knowledge from './components/knowledge/Knowledge';
 import Admin from './components/admin/Admin';
 import ChatApp from './components/chat/ChatApp';
+import Accounts from './components/accounts/Accounts';
+import Email from './components/email/Email';
+import CalendarView from './components/calendar/CalendarView';
+import Contacts from './components/contacts/Contacts';
+import Terminal from './components/terminal/Terminal';
+import DGXSpark from './components/dgx-spark/DGXSpark';
+import { ThemeProvider } from './themes/ThemeContext';
+import { LayoutProvider, useLayout } from './components/layout/LayoutContext';
+import SplitLayout from './components/layout/SplitLayout';
 import './styles/app.css';
 
 // Load database test utility in development
@@ -27,26 +33,43 @@ const APPS = {
   memory: { id: 'memory', name: 'Memory Viewer', component: MemoryViewer, accent: '#f87171' },
   vision: { id: 'vision', name: 'Vision', component: VisionApp, accent: '#8b5cf6' },
   chain: { id: 'chain', name: 'Chain Runner', component: ChainRunner, accent: '#3b82f6' },
+  terminal: { id: 'terminal', name: 'Terminal', component: Terminal, accent: '#22c55e' },
+  'dgx-spark': { id: 'dgx-spark', name: 'DGX Spark', component: DGXSpark, accent: '#22c55e' },
   projects: { id: 'projects', name: 'Projects', component: Projects, accent: '#8b5cf6' },
   reminders: { id: 'reminders', name: 'Reminders', component: Reminders, accent: '#22c55e' },
   relationships: { id: 'relationships', name: 'Relationships', component: Relationships, accent: '#ec4899' },
   meetings: { id: 'meetings', name: 'Meetings', component: Meetings, accent: '#3b82f6' },
   knowledge: { id: 'knowledge', name: 'Knowledge', component: Knowledge, accent: '#06b6d4' },
   chat: { id: 'chat', name: 'Chat', component: ChatApp, accent: '#8b5cf6' },
+  email: { id: 'email', name: 'Email', component: Email, accent: '#ea4335' },
+  calendar: { id: 'calendar', name: 'Calendar', component: CalendarView, accent: '#4285f4' },
+  contacts: { id: 'contacts', name: 'Contacts', component: Contacts, accent: '#0f9d58' },
+  accounts: { id: 'accounts', name: 'Accounts', component: Accounts, accent: '#8b5cf6' },
   admin: { id: 'admin', name: 'Admin Panel', component: Admin, accent: '#64748b' },
   settings: { id: 'settings', name: 'Settings', component: Settings, accent: '#64748b' },
 };
 
-export default function App() {
-  const [tabs, setTabs] = useState([]);
-  const [activeTabId, setActiveTabId] = useState(null);
+function AppContent() {
   const [activeModule, setActiveModule] = useState(null);
   const [apiKeys, setApiKeys] = useState({});
   const [apiKeysLoaded, setApiKeysLoaded] = useState(false);
   const [apiKeyError, setApiKeyError] = useState(null);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
+  const { openAppInPane, panes } = useLayout();
 
   useEffect(() => {
     loadApiKeys();
+
+    // Listen for menu navigation events
+    if (window.electronAPI?.onNavigateTo) {
+      const cleanup = window.electronAPI.onNavigateTo((moduleId) => {
+        console.log('Menu navigate to:', moduleId);
+        if (APPS[moduleId]) {
+          openApp(moduleId);
+        }
+      });
+      return cleanup;
+    }
   }, []);
 
   const loadApiKeys = async () => {
@@ -77,21 +100,11 @@ export default function App() {
   };
 
   const openApp = (appId) => {
-    const existingTab = tabs.find(t => t.appId === appId);
-    if (existingTab) {
-      setActiveTabId(existingTab.id);
-      setActiveModule(appId);
-      return;
-    }
-
-    const newTab = {
-      id: `${appId}-${Date.now()}`,
-      appId,
-      ...APPS[appId],
-    };
-    setTabs([...tabs, newTab]);
-    setActiveTabId(newTab.id);
     setActiveModule(appId);
+    // Open in the first pane by default
+    if (panes.length > 0 && APPS[appId]) {
+      openAppInPane(panes[0].id, APPS[appId]);
+    }
   };
 
   const handleNavigate = (moduleId) => {
@@ -101,60 +114,22 @@ export default function App() {
     // If the module has an app component, open it as a tab
     if (APPS[moduleId]) {
       openApp(moduleId);
-    } else {
-      // For unimplemented modules, close tabs
-      setActiveTabId(null);
     }
   };
-
-  const closeTab = (tabId) => {
-    const tabIndex = tabs.findIndex(t => t.id === tabId);
-    const newTabs = tabs.filter(t => t.id !== tabId);
-    setTabs(newTabs);
-
-    if (activeTabId === tabId) {
-      if (newTabs.length === 0) {
-        setActiveTabId(null);
-      } else {
-        const newIndex = Math.min(tabIndex, newTabs.length - 1);
-        setActiveTabId(newTabs[newIndex].id);
-      }
-    }
-  };
-
-  const goHome = () => {
-    setActiveTabId(null);
-  };
-
-  const activeTab = tabs.find(t => t.id === activeTabId);
-
-  // Set accent color CSS variable
-  useEffect(() => {
-    const accent = activeTab?.accent || '#8b5cf6';
-    document.documentElement.style.setProperty('--accent', accent);
-  }, [activeTab]);
 
   return (
-    <div className="app-container">
+    <div className={`app-container ${!sidebarCollapsed ? 'sidebar-expanded' : ''}`}>
       {/* Sidebar Navigation */}
       <Sidebar
         activeModule={activeModule}
         onNavigate={handleNavigate}
         onOpenApp={openApp}
+        isCollapsed={sidebarCollapsed}
+        onToggleCollapse={setSidebarCollapsed}
       />
 
       {/* Main Content Area */}
       <div className="app-content">
-        {tabs.length > 0 && (
-          <TabNavigation
-            tabs={tabs}
-            activeTabId={activeTabId}
-            onSelectTab={setActiveTabId}
-            onCloseTab={closeTab}
-            onGoHome={goHome}
-          />
-        )}
-
         {apiKeysLoaded && apiKeyError && (
           <div className="api-key-warning">
             <span className="warning-icon">⚠</span>
@@ -170,23 +145,19 @@ export default function App() {
         )}
 
         <main className="app-main">
-          {!activeTabId ? (
-            <HomeScreen onOpenApp={openApp} />
-          ) : (
-            tabs.map(tab => (
-              <div
-                key={tab.id}
-                className="tab-content"
-                style={{ display: tab.id === activeTabId ? 'flex' : 'none' }}
-              >
-                <ErrorBoundary key={tab.id}>
-                  <tab.component apiKeys={apiKeys} />
-                </ErrorBoundary>
-              </div>
-            ))
-          )}
+          <SplitLayout APPS={APPS} apiKeys={apiKeys} />
         </main>
       </div>
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <ThemeProvider>
+      <LayoutProvider>
+        <AppContent />
+      </LayoutProvider>
+    </ThemeProvider>
   );
 }

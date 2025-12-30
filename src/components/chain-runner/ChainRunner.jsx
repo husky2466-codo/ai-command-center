@@ -69,6 +69,10 @@ export default function ChainRunner({ apiKeys }) {
   const [qualityThreshold, setQualityThreshold] = useState(0.7);
   const [isValidating, setIsValidating] = useState(false);
 
+  // DGX Spark / Ollama endpoint state
+  const [ollamaEndpoint, setOllamaEndpoint] = useState('local'); // 'local' or 'dgx'
+  const [dgxConnected, setDgxConnected] = useState(false);
+
   const abortRef = useRef(false);
   const mediaRecorderRef = useRef(null);
   const recordedChunksRef = useRef([]);
@@ -87,6 +91,32 @@ export default function ChainRunner({ apiKeys }) {
     return () => {
       typewriterTimersRef.current.forEach(timer => clearTimeout(timer));
     };
+  }, []);
+
+  // Check DGX connection status
+  useEffect(() => {
+    const checkDgxConnection = async () => {
+      if (!window.electronAPI?.dgxCheckStatus) {
+        setDgxConnected(false);
+        return;
+      }
+
+      try {
+        // Check if 'active' connection exists
+        const result = await window.electronAPI.dgxCheckStatus('active');
+        setDgxConnected(result?.connected || false);
+      } catch (err) {
+        setDgxConnected(false);
+      }
+    };
+
+    // Initial check
+    checkDgxConnection();
+
+    // Poll every 5 seconds
+    const interval = setInterval(checkDgxConnection, 5000);
+
+    return () => clearInterval(interval);
   }, []);
 
   const addAgent = () => {
@@ -117,6 +147,14 @@ export default function ChainRunner({ apiKeys }) {
     const newAgents = [...agents];
     [newAgents[idx], newAgents[newIdx]] = [newAgents[newIdx], newAgents[idx]];
     setAgents(newAgents);
+  };
+
+  // Get Ollama URL based on endpoint selection
+  const getOllamaUrl = () => {
+    if (ollamaEndpoint === 'dgx') {
+      return 'http://192.168.3.20:11434'; // DGX Spark direct IP
+    }
+    return 'http://localhost:11434'; // Local Ollama
   };
 
   // Typewriter effect with abort support
@@ -340,7 +378,7 @@ export default function ChainRunner({ apiKeys }) {
     }
 
     if (provider === 'ollama') {
-      const res = await fetch('http://localhost:11434/api/chat', {
+      const res = await fetch(`${getOllamaUrl()}/api/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -497,7 +535,8 @@ export default function ChainRunner({ apiKeys }) {
             answer,
             validatorProvider,
             validatorApiKey,
-            validatorModel
+            validatorModel,
+            getOllamaUrl() // Pass Ollama URL for DGX support
           );
 
           if (validationResult.success) {
@@ -576,7 +615,8 @@ export default function ChainRunner({ apiKeys }) {
         provider: generatorProvider,
         apiKey,
         model: generatorModel,
-        existingTopics: existing.questions || []
+        existingTopics: existing.questions || [],
+        ollamaUrl: getOllamaUrl() // Pass the Ollama URL
       });
 
       if (result.success) {
@@ -645,7 +685,8 @@ export default function ChainRunner({ apiKeys }) {
     validatorProvider,
     validatorModel,
     qualityThreshold,
-    enableTypewriter
+    enableTypewriter,
+    ollamaEndpoint
   });
 
   // Load configuration from modal
@@ -672,6 +713,7 @@ export default function ChainRunner({ apiKeys }) {
     if (config.validatorModel) setValidatorModel(config.validatorModel);
     if (config.qualityThreshold !== undefined) setQualityThreshold(config.qualityThreshold);
     if (config.enableTypewriter !== undefined) setEnableTypewriter(config.enableTypewriter);
+    if (config.ollamaEndpoint !== undefined) setOllamaEndpoint(config.ollamaEndpoint);
   };
 
   // Handle config save completion
@@ -772,6 +814,24 @@ export default function ChainRunner({ apiKeys }) {
                       ))}
                     </select>
                   </div>
+
+                  {agent.provider === 'ollama' && (
+                    <div className="config-row endpoint-selector">
+                      <label>Endpoint</label>
+                      <select
+                        value={ollamaEndpoint}
+                        onChange={(e) => setOllamaEndpoint(e.target.value)}
+                      >
+                        <option value="local">Local (localhost:11434)</option>
+                        {dgxConnected && (
+                          <option value="dgx">DGX Spark (192.168.3.20)</option>
+                        )}
+                      </select>
+                      {ollamaEndpoint === 'dgx' && dgxConnected && (
+                        <span className="dgx-indicator">✓ Connected</span>
+                      )}
+                    </div>
+                  )}
 
                   <div className="config-row">
                     <label>Task Spec</label>

@@ -85,10 +85,11 @@ class ChatService {
    * @returns {Promise<Object>} Saved message
    */
   async saveMessage(sessionId, role, content, metadata = {}) {
+    const id = crypto.randomUUID();
     const result = await dataService.run(
-      `INSERT INTO chat_messages (session_id, role, content, metadata, created_at)
-       VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)`,
-      [sessionId, role, content, JSON.stringify(metadata)]
+      `INSERT INTO chat_messages (id, session_id, role, content, tool_calls, created_at)
+       VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
+      [id, sessionId, role, content, JSON.stringify(metadata.tool_calls || null)]
     );
 
     // Update session message count
@@ -100,7 +101,7 @@ class ChatService {
     }
 
     return {
-      id: result.lastInsertRowid,
+      id: id,
       session_id: sessionId,
       role,
       content,
@@ -238,7 +239,7 @@ class ChatService {
         usage: {
           input_tokens: inputTokens,
           output_tokens: outputTokens,
-          total_tokens: totalTokens
+          total_tokens: inputTokens + outputTokens
         }
       };
 
@@ -351,10 +352,11 @@ class ChatService {
    */
   async logMemoryRecall(sessionId, memoryId, queryText, relevanceScore) {
     try {
+      const id = crypto.randomUUID();
       await dataService.run(
-        `INSERT INTO session_recalls (session_id, memory_id, query_text, relevance_score, recalled_at)
-         VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)`,
-        [sessionId, memoryId, queryText, relevanceScore]
+        `INSERT INTO session_recalls (id, session_id, memory_id, query_text, similarity_score, recalled_at)
+         VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
+        [id, sessionId, memoryId, queryText, relevanceScore]
       );
     } catch (error) {
       console.error('Failed to log memory recall:', error);

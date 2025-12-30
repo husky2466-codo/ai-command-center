@@ -12,7 +12,7 @@ import QuickActionsWidget from './widgets/QuickActionsWidget';
 import './Dashboard.css';
 
 /**
- * Dashboard - Andy's Daily Briefing System
+ * Dashboard - Daily Briefing System
  * Aggregates data from all modules into a command center view
  */
 function Dashboard({ apiKeys }) {

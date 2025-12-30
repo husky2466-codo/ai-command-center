@@ -1,0 +1,361 @@
+/* ============================================================================
+   SIGNATURE MANAGER - Email Signature Management Modal
+   Gmail Red Accent (#ea4335) | Consistent with Email module styling
+   ============================================================================ */
+
+/* ============================================================================
+   MODAL OVERRIDES
+   ============================================================================ */
+
+.signature-manager-modal .modal-body {
+  padding: 0;
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+.signature-manager-modal .modal-footer {
+  border-top: 1px solid var(--border-color);
+  padding: 16px 24px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+/* ============================================================================
+   ERROR MESSAGE
+   ============================================================================ */
+
+.signature-error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px;
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--status-error);
+  font-size: 14px;
+  border-bottom: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.signature-error svg {
+  flex-shrink: 0;
+}
+
+/* ============================================================================
+   LOADING STATE
+   ============================================================================ */
+
+.signature-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 48px 24px;
+  color: var(--text-secondary);
+}
+
+.signature-loading .loading-spinner {
+  animation: spin 1s linear infinite;
+  color: #ea4335;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* ============================================================================
+   EMPTY STATE
+   ============================================================================ */
+
+.signature-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 48px 24px;
+  text-align: center;
+}
+
+.signature-empty .empty-icon {
+  color: var(--text-muted);
+}
+
+.signature-empty h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.signature-empty p {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text-secondary);
+  max-width: 300px;
+}
+
+/* ============================================================================
+   SIGNATURE LIST
+   ============================================================================ */
+
+.signature-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.signature-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--border-color);
+  transition: background 0.2s ease;
+}
+
+.signature-item:hover {
+  background: var(--bg-card);
+}
+
+.signature-item:last-child {
+  border-bottom: none;
+}
+
+.signature-item.signature-default {
+  background: rgba(234, 67, 53, 0.05);
+  border-left: 3px solid #ea4335;
+}
+
+.signature-item-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.signature-item-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.signature-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.signature-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 10px;
+  text-transform: uppercase;
+}
+
+.signature-badge-default {
+  background: rgba(234, 67, 53, 0.15);
+  color: #ea4335;
+}
+
+.signature-item-tags {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.signature-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted);
+  background: var(--bg-secondary);
+  border-radius: 4px;
+}
+
+.signature-item-preview {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.signature-item-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.signature-item-actions .btn {
+  font-size: 12px;
+}
+
+.signature-delete-btn:hover {
+  color: var(--status-error) !important;
+}
+
+/* ============================================================================
+   SIGNATURE EDITOR
+   ============================================================================ */
+
+.signature-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 24px;
+}
+
+.signature-editor-label {
+  display: block;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+
+.signature-editor-content {
+  display: flex;
+  flex-direction: column;
+}
+
+/* ============================================================================
+   EDITOR OPTIONS
+   ============================================================================ */
+
+.signature-editor-options {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+}
+
+.signature-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.signature-checkbox input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: #ea4335;
+  cursor: pointer;
+}
+
+.signature-checkbox span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  color: var(--text-primary);
+}
+
+.signature-checkbox span svg {
+  color: var(--text-muted);
+}
+
+.signature-auto-insert {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.signature-auto-insert-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+/* ============================================================================
+   SIGNATURE PREVIEW
+   ============================================================================ */
+
+.signature-preview-section {
+  display: flex;
+  flex-direction: column;
+}
+
+.signature-preview {
+  padding: 16px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  min-height: 100px;
+}
+
+.signature-separator {
+  font-size: 14px;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+.signature-preview-content {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text-primary);
+}
+
+.signature-preview-content p {
+  margin: 0 0 8px 0;
+}
+
+.signature-preview-content p:last-child {
+  margin-bottom: 0;
+}
+
+.signature-preview-content a {
+  color: #ea4335;
+  text-decoration: none;
+}
+
+.signature-preview-content a:hover {
+  text-decoration: underline;
+}
+
+.signature-preview-content img {
+  max-width: 100%;
+  height: auto;
+}
+
+.signature-preview-content em {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+/* ============================================================================
+   RESPONSIVE ADJUSTMENTS
+   ============================================================================ */
+
+@media (max-width: 600px) {
+  .signature-item-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .signature-item-actions {
+    flex-wrap: wrap;
+  }
+
+  .signature-auto-insert {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+}
