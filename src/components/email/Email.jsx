@@ -160,26 +160,6 @@ export default function Email() {
     }
   }, [selectedAccountId, selectedFolder]);
 
-  // Keyboard navigation
-  useKeyboardNavigation({
-    emails: paginatedEmails,
-    selectedEmail,
-    onEmailClick: handleEmailClick,
-    onToggleSelect: handleToggleEmailSelection,
-    onToggleStar: handleToggleStar,
-    modalStates: {
-      showCompose,
-      showReplyModal,
-      showForwardModal,
-      showLabelManager,
-      showTemplateManager,
-      showSignatureManager,
-      showAdvancedSearch,
-      showSettings,
-      showKeyboardHelp
-    }
-  });
-
   // Listen for '?' key to show keyboard shortcuts help
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -869,6 +849,27 @@ export default function Email() {
   const handleSaveSettings = (newSettings) => {
     setEmailSettings(newSettings);
   };
+
+  // =============== KEYBOARD NAVIGATION ===============
+  // NOTE: Must be placed after handler functions are defined
+  useKeyboardNavigation({
+    emails: paginatedEmails,
+    selectedEmail,
+    onEmailClick: handleEmailClick,
+    onToggleSelect: handleToggleEmailSelection,
+    onToggleStar: handleToggleStar,
+    modalStates: {
+      showCompose,
+      showReplyModal,
+      showForwardModal,
+      showLabelManager,
+      showTemplateManager,
+      showSignatureManager,
+      showAdvancedSearch,
+      showSettings,
+      showKeyboardHelp
+    }
+  });
 
   // =============== RENDER ===============
 
