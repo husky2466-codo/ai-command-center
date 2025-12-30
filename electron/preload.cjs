@@ -31,6 +31,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // API keys
   getEnvKeys: () => ipcRenderer.invoke('get-env-keys'),
 
+  // Error logging
+  logError: (errorData) => ipcRenderer.invoke('log-error', errorData),
+  showErrorDialog: (options) => ipcRenderer.invoke('show-error-dialog', options),
+
   // Database operations
   dbQuery: (sql, params) => ipcRenderer.invoke('db:query', sql, params),
   dbRun: (sql, params) => ipcRenderer.invoke('db:run', sql, params),

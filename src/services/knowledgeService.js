@@ -1,12 +1,22 @@
+// @ts-check
+
 /**
  * Knowledge Service
  * Handles all knowledge base operations: folders, articles, tags, and search
+ */
+
+/**
+ * @typedef {import('../types').KnowledgeFolder} KnowledgeFolder
+ * @typedef {import('../types').KnowledgeArticle} KnowledgeArticle
  */
 
 import { v4 as uuidv4 } from 'uuid';
 
 /**
  * Helper function to handle IPC responses
+ * @param {string} sql - SQL query
+ * @param {any[]} [params=[]] - Query parameters
+ * @returns {Promise<any[]>}
  */
 async function dbQuery(sql, params = []) {
   const result = await window.electronAPI.dbQuery(sql, params);
@@ -16,6 +26,12 @@ async function dbQuery(sql, params = []) {
   return result.data;
 }
 
+/**
+ * Helper function to run database operations
+ * @param {string} sql - SQL query
+ * @param {any[]} [params=[]] - Query parameters
+ * @returns {Promise<{success: boolean, changes?: number, lastInsertRowid?: number}>}
+ */
 async function dbRun(sql, params = []) {
   const result = await window.electronAPI.dbRun(sql, params);
   if (!result.success) {
@@ -28,6 +44,10 @@ async function dbRun(sql, params = []) {
  * Folder Operations
  */
 
+/**
+ * Get all knowledge folders as a tree structure
+ * @returns {Promise<KnowledgeFolder[]>}
+ */
 export async function getAllFolders() {
   if (!window.electronAPI?.dbQuery) {
     throw new Error('Database not available');
@@ -41,6 +61,12 @@ export async function getAllFolders() {
   return buildFolderTree(folders);
 }
 
+/**
+ * Create a new knowledge folder
+ * @param {string} name - Folder name
+ * @param {string|null} [parentId=null] - Parent folder ID
+ * @returns {Promise<KnowledgeFolder>}
+ */
 export async function createFolder(name, parentId = null) {
   if (!window.electronAPI?.dbRun) {
     throw new Error('Database not available');
@@ -56,6 +82,15 @@ export async function createFolder(name, parentId = null) {
   return { id, parent_id: parentId, name, sort_order: 0 };
 }
 
+/**
+ * Update a knowledge folder
+ * @param {string} id - Folder ID
+ * @param {Object} updates - Update fields
+ * @param {string} [updates.name] - New folder name
+ * @param {string|null} [updates.parent_id] - New parent ID
+ * @param {number} [updates.sort_order] - New sort order
+ * @returns {Promise<void>}
+ */
 export async function updateFolder(id, updates) {
   if (!window.electronAPI?.dbRun) {
     throw new Error('Database not available');
@@ -121,6 +156,11 @@ export async function deleteFolder(id) {
  * Article Operations
  */
 
+/**
+ * Get all knowledge articles, optionally filtered by folder
+ * @param {string|null} [folderId=null] - Folder ID to filter by
+ * @returns {Promise<KnowledgeArticle[]>}
+ */
 export async function getAllArticles(folderId = null) {
   if (!window.electronAPI?.dbQuery) {
     throw new Error('Database not available');
@@ -176,6 +216,17 @@ export async function getArticle(id) {
   };
 }
 
+/**
+ * Create a new knowledge article
+ * @param {Object} articleData - Article data
+ * @param {string} articleData.folder_id - Folder ID
+ * @param {string} articleData.title - Article title
+ * @param {string} [articleData.content=''] - Article content
+ * @param {string|null} [articleData.source_url=null] - Source URL
+ * @param {string[]} [articleData.tags=[]] - Article tags
+ * @param {boolean} [articleData.is_spark=false] - Is this a spark?
+ * @returns {Promise<KnowledgeArticle>}
+ */
 export async function createArticle(articleData) {
   if (!window.electronAPI?.dbRun) {
     throw new Error('Database not available');
@@ -279,6 +330,11 @@ export async function deleteArticle(id) {
  * Search Operations
  */
 
+/**
+ * Search articles by title, content, or tags
+ * @param {string} query - Search query
+ * @returns {Promise<KnowledgeArticle[]>}
+ */
 export async function searchArticles(query) {
   if (!window.electronAPI?.dbQuery) {
     throw new Error('Database not available');

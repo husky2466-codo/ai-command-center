@@ -1,6 +1,14 @@
+// @ts-check
+
 /**
  * ProjectService - Business logic for three-tier project system
  * Handles Spaces, Projects, and Tasks with energy-based task management
+ */
+
+/**
+ * @typedef {import('../types').Project} Project
+ * @typedef {import('../types').Task} Task
+ * @typedef {import('../types').Space} Space
  */
 
 import { dataService } from './DataService.js';
@@ -11,16 +19,34 @@ class ProjectService {
   // SPACES (Life Areas - 30,000 ft view)
   // ============================================================================
 
+  /**
+   * Get all spaces
+   * @returns {Promise<Space[]>}
+   */
   async getAllSpaces() {
     return await dataService.query(
       'SELECT * FROM spaces ORDER BY sort_order ASC, created_at DESC'
     );
   }
 
+  /**
+   * Get a single space by ID
+   * @param {string} id - Space ID
+   * @returns {Promise<Space>}
+   */
   async getSpace(id) {
     return await dataService.get('SELECT * FROM spaces WHERE id = ?', [id]);
   }
 
+  /**
+   * Create a new space
+   * @param {Object} options - Space options
+   * @param {string} options.name - Space name
+   * @param {string} options.description - Space description
+   * @param {string} [options.color='#8b5cf6'] - Space color
+   * @param {string|null} [options.icon=null] - Space icon
+   * @returns {Promise<Space>}
+   */
   async createSpace({ name, description, color = '#8b5cf6', icon = null }) {
     const id = uuidv4();
     const now = new Date().toISOString();
@@ -112,6 +138,13 @@ class ProjectService {
   // PROJECTS (10,000 ft view)
   // ============================================================================
 
+  /**
+   * Get all projects with optional filters
+   * @param {Object} [filters={}] - Filter options
+   * @param {string} [filters.space_id] - Filter by space ID
+   * @param {string} [filters.status] - Filter by status
+   * @returns {Promise<Project[]>}
+   */
   async getAllProjects(filters = {}) {
     let query = 'SELECT * FROM projects WHERE 1=1';
     const params = [];
@@ -171,6 +204,18 @@ class ProjectService {
     };
   }
 
+  /**
+   * Create a new project
+   * @param {Object} options - Project options
+   * @param {string} options.space_id - Space ID
+   * @param {string} options.name - Project name
+   * @param {string} options.description - Project description
+   * @param {string} [options.status='on_deck'] - Project status
+   * @param {string|null} [options.deadline=null] - Deadline date
+   * @param {string|null} [options.planning_notes=null] - Planning notes
+   * @param {string|null} [options.fs_path=null] - Filesystem path
+   * @returns {Promise<Project>}
+   */
   async createProject({
     space_id,
     name,
@@ -300,6 +345,15 @@ class ProjectService {
   // TASKS (Ground Level - Now View)
   // ============================================================================
 
+  /**
+   * Get all tasks with optional filters
+   * @param {Object} [filters={}] - Filter options
+   * @param {string} [filters.project_id] - Filter by project ID
+   * @param {string} [filters.energy_type] - Filter by energy type
+   * @param {string} [filters.status] - Filter by status
+   * @param {boolean} [filters.exclude_completed] - Exclude completed tasks
+   * @returns {Promise<Task[]>}
+   */
   async getAllTasks(filters = {}) {
     let query = 'SELECT * FROM tasks WHERE 1=1';
     const params = [];
@@ -345,6 +399,17 @@ class ProjectService {
     };
   }
 
+  /**
+   * Create a new task
+   * @param {Object} options - Task options
+   * @param {string} options.project_id - Project ID
+   * @param {string} options.title - Task title
+   * @param {string|null} [options.description=null] - Task description
+   * @param {string} [options.energy_type='medium'] - Energy type
+   * @param {string} [options.status='pending'] - Task status
+   * @param {string|null} [options.due_date=null] - Due date
+   * @returns {Promise<Task>}
+   */
   async createTask({
     project_id,
     title,

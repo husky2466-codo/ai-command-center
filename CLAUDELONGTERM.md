@@ -454,3 +454,150 @@ Kills stale Electron/Node processes when app won't start:
 ```powershell
 powershell -ExecutionPolicy Bypass -File cleanup-dev.ps1
 ```
+
+---
+
+## Project File Watcher System (Implemented 2025-12-29)
+
+### Architecture
+- **Library**: chokidar (file system watcher)
+- **Location**: `electron/services/projectWatcher.cjs`
+- **Trigger**: Watches project `fs_path` directories from database
+
+### Progress Calculation Algorithm
+Milestone-based with activity bonus:
+```javascript
+const MILESTONES = {
+  'README.md': 10,
+  'package.json': 10,
+  'src/': 20,
+  'tests/': 15,
+  'build/': 15,
+  '.git/': 10
+};
+// Base progress from milestones (max 80%)
+// +20% bonus for recent activity (files modified in last 7 days)
+```
+
+### IPC Channels
+- `project:start-watching` - Start watching a project folder
+- `project:stop-watching` - Stop watching a project folder
+- `project:get-progress` - Get current calculated progress
+- `project:progress-update` - Event when progress changes
+
+### Integration Points
+- `ProjectService.js` - `startWatching()`, `stopWatching()`, `getProgress()`
+- `Projects.jsx` - Initializes watchers on mount, listens for updates
+- `ProjectsView.jsx` - Displays real-time progress bars
+
+---
+
+## Email Module Architecture (Completed 2025-12-29)
+
+### Phase 1: Core Email (Complete)
+- Gmail-like interface with folder sidebar
+- Email list with unread indicators
+- Reading pane with HTML rendering
+- Compose modal with recipients, subject, body
+
+### Phase 2: Advanced Features (Complete)
+- **Signatures**: Create/edit/default per account (`SignatureManager.jsx`)
+- **Labels**: Custom labels with colors (`LabelManager.jsx`)
+- **Templates**: Email templates with variable substitution (`TemplateManager.jsx`)
+- **Advanced Search**: Multi-field search with saved queries (`AdvancedSearchModal.jsx`)
+- **Migrations**: 007_email_signatures, 008_email_templates, 009_saved_searches
+
+### Phase 3: UX Polish (Complete)
+- **Settings Panel** (`EmailSettings.jsx`): Preferences stored in localStorage
+- **Keyboard Shortcuts**: Gmail-style J/K/C/R/F navigation
+- **Virtual Scrolling**: Attempted with react-window, reverted to map (API issues)
+
+### Keyboard Shortcuts Pattern
+```javascript
+// useKeyboardNavigation.js - J/K navigation, X select
+// useEmailKeyboardShortcuts.js - All other shortcuts
+// KeyboardShortcutsHelp.jsx - Modal with grouped shortcuts
+
+const DEFAULT_SHORTCUTS = [
+  { key: 'J', description: 'Next email', category: 'Navigation' },
+  // ... always provide defaults to prevent undefined.reduce()
+];
+```
+
+### Settings Persistence
+```javascript
+const SETTINGS_KEY = 'email_settings';
+// Stored: readingPanePosition, markAsReadDelay, composeFormat, syncFrequency
+```
+
+---
+
+## Known Issues (Updated 2025-12-29)
+
+### React Variable Ordering
+Variables must be defined BEFORE hooks that use them:
+```javascript
+// WRONG: paginatedEmails used before defined
+useKeyboardNavigation({ emails: paginatedEmails });
+const paginatedEmails = emails.slice(...);
+
+// CORRECT: Define first, then use
+const paginatedEmails = emails.slice(...);
+useKeyboardNavigation({ emails: paginatedEmails });
+```
+
+### Default Props for Arrays
+Always provide defaults when mapping/reducing props:
+```javascript
+// WRONG: shortcuts might be undefined
+shortcuts.reduce(...)
+
+// CORRECT: Default parameter + guard
+export default function Component({ shortcuts = DEFAULT_SHORTCUTS }) {
+  const list = shortcuts || DEFAULT_SHORTCUTS;
+  list.reduce(...)
+}
+```
+
+### better-sqlite3 Electron Version
+When NODE_MODULE_VERSION mismatches:
+```bash
+cd node_modules/better-sqlite3
+npx node-gyp rebuild --target=33.4.11 --arch=x64 --dist-url=https://electronjs.org/headers
+```
+
+### Migration Numbering
+Always check for conflicts before creating new migrations:
+```bash
+ls electron/database/migrations/
+# Ensure no duplicate numbers (e.g., two 007_* files)
+```
+
+---
+
+## CSS Patterns (2025-12-29)
+
+### Input with Icon
+Icons need explicit positioning to avoid text overlap:
+```css
+.input-icon-left {
+  left: 12px;  /* Fixed position, not variable */
+}
+.input-has-icon-left {
+  padding-left: 44px !important;  /* 12px + 16px icon + 16px gap */
+}
+```
+
+### Toolbar Layout Fix
+When buttons get cut off, use column layout:
+```css
+.toolbar {
+  flex-direction: column;
+  padding: 12px 16px;
+}
+.toolbar-left {
+  flex-wrap: wrap;
+  width: 100%;
+  gap: 8px;
+}
+```

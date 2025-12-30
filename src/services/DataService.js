@@ -3,6 +3,8 @@
  * Provides low-level database operations and utilities
  */
 
+import { databaseError, serviceUnavailable } from '../utils/AppError.js';
+
 class DataService {
   constructor() {
     this.cache = new Map();
@@ -16,11 +18,18 @@ class DataService {
    * @returns {Promise<Array>}
    */
   async query(sql, params = []) {
-    const result = await window.electronAPI.dbQuery(sql, params);
-    if (!result.success) {
-      throw new Error(`Query failed: ${result.error}`);
+    try {
+      const result = await window.electronAPI.dbQuery(sql, params);
+      if (!result.success) {
+        throw databaseError('query', 'database', new Error(result.error));
+      }
+      return result.data;
+    } catch (error) {
+      if (error.code && error.isOperational) {
+        throw error; // Already an AppError
+      }
+      throw databaseError('query', 'database', error);
     }
-    return result.data;
   }
 
   /**
@@ -30,11 +39,18 @@ class DataService {
    * @returns {Promise<Object>} { changes, lastInsertRowid }
    */
   async run(sql, params = []) {
-    const result = await window.electronAPI.dbRun(sql, params);
-    if (!result.success) {
-      throw new Error(`Run failed: ${result.error}`);
+    try {
+      const result = await window.electronAPI.dbRun(sql, params);
+      if (!result.success) {
+        throw databaseError('run', 'database', new Error(result.error));
+      }
+      return { changes: result.changes, lastInsertRowid: result.lastInsertRowid };
+    } catch (error) {
+      if (error.code && error.isOperational) {
+        throw error;
+      }
+      throw databaseError('run', 'database', error);
     }
-    return { changes: result.changes, lastInsertRowid: result.lastInsertRowid };
   }
 
   /**
@@ -44,11 +60,18 @@ class DataService {
    * @returns {Promise<Object|null>}
    */
   async get(sql, params = []) {
-    const result = await window.electronAPI.dbGet(sql, params);
-    if (!result.success) {
-      throw new Error(`Get failed: ${result.error}`);
+    try {
+      const result = await window.electronAPI.dbGet(sql, params);
+      if (!result.success) {
+        throw databaseError('get', 'database', new Error(result.error));
+      }
+      return result.data || null;
+    } catch (error) {
+      if (error.code && error.isOperational) {
+        throw error;
+      }
+      throw databaseError('get', 'database', error);
     }
-    return result.data || null;
   }
 
   /**
@@ -57,11 +80,18 @@ class DataService {
    * @returns {Promise<Array>}
    */
   async transaction(operations) {
-    const result = await window.electronAPI.dbTransaction(operations);
-    if (!result.success) {
-      throw new Error(`Transaction failed: ${result.error}`);
+    try {
+      const result = await window.electronAPI.dbTransaction(operations);
+      if (!result.success) {
+        throw databaseError('transaction', 'database', new Error(result.error));
+      }
+      return result.data;
+    } catch (error) {
+      if (error.code && error.isOperational) {
+        throw error;
+      }
+      throw databaseError('transaction', 'database', error);
     }
-    return result.data;
   }
 
   /**
@@ -113,20 +143,29 @@ class DataService {
    * @returns {Promise<Array>}
    */
   async vectorSearch(table, embedding, limit = 10) {
-    // Check if vector search is available
-    if (this.vectorSearchAvailable === null) {
-      await this.checkHealth();
-    }
+    try {
+      // Check if vector search is available
+      if (this.vectorSearchAvailable === null) {
+        await this.checkHealth();
+      }
 
-    if (!this.vectorSearchAvailable) {
-      throw new Error('Vector search is not available (sqlite-vss extension not loaded)');
-    }
+      if (!this.vectorSearchAvailable) {
+        throw serviceUnavailable('Vector search', {
+          reason: 'sqlite-vss extension not loaded'
+        });
+      }
 
-    const result = await window.electronAPI.dbVectorSearch({ table, embedding, limit });
-    if (!result.success) {
-      throw new Error(`Vector search failed: ${result.error}`);
+      const result = await window.electronAPI.dbVectorSearch({ table, embedding, limit });
+      if (!result.success) {
+        throw databaseError('vector search', table, new Error(result.error));
+      }
+      return result.data;
+    } catch (error) {
+      if (error.code && error.isOperational) {
+        throw error;
+      }
+      throw databaseError('vector search', table, error);
     }
-    return result.data;
   }
 
   /**

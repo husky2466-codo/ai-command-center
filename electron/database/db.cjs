@@ -2,6 +2,7 @@ const Database = require('better-sqlite3');
 const path = require('path');
 const { app } = require('electron');
 const fs = require('fs');
+const logger = require('../utils/logger.cjs');
 
 let db = null;
 
@@ -13,21 +14,20 @@ function initializeDatabase() {
   const userDataPath = app.getPath('userData');
   const dbPath = path.join(userDataPath, 'database.sqlite');
 
-  console.log(`[Database] Initializing database at: ${dbPath}`);
+  logger.info('Initializing database', { dbPath });
 
   db = new Database(dbPath);
 
   // Enable WAL mode for better concurrent performance
   db.pragma('journal_mode = WAL');
-  console.log('[Database] WAL mode enabled');
+  logger.db('WAL mode enabled', 'system');
 
   // Load sqlite-vss extension for vector search (graceful fallback if unavailable)
   try {
     db.loadExtension('sqlite-vss');
-    console.log('[Database] sqlite-vss extension loaded successfully');
+    logger.info('sqlite-vss extension loaded successfully');
   } catch (err) {
-    console.warn('[Database] sqlite-vss not available, vector search disabled:', err.message);
-    console.warn('[Database] App will continue without vector search capabilities');
+    logger.warn('sqlite-vss not available, vector search disabled', { error: err.message });
   }
 
   // Run migrations
@@ -52,7 +52,7 @@ function getDatabase() {
  * Run all pending migrations in order
  */
 function runMigrations() {
-  console.log('[Database] Running migrations...');
+  logger.info('Running database migrations');
 
   // Create migrations tracking table
   db.exec(`
@@ -85,13 +85,13 @@ function runMigrations() {
   // Apply pending migrations
   for (const name of migrations) {
     if (!appliedNames.has(name)) {
-      console.log(`[Database] Applying migration: ${name}`);
+      logger.db('Applying migration', 'migrations', { name });
       try {
         const migrationPath = path.join(migrationsDir, `${name}.cjs`);
 
         // Check if migration file exists
         if (!fs.existsSync(migrationPath)) {
-          console.error(`[Database] Migration file not found: ${migrationPath}`);
+          logger.error('Migration file not found', { name, path: migrationPath });
           continue;
         }
 
@@ -104,17 +104,17 @@ function runMigrations() {
         });
 
         applyMigration();
-        console.log(`[Database] Migration ${name} applied successfully`);
+        logger.db('Migration applied successfully', 'migrations', { name });
       } catch (err) {
-        console.error(`[Database] Migration ${name} failed:`, err.message);
+        logger.error('Migration failed', { name, error: err.message, stack: err.stack });
         throw err;
       }
     } else {
-      console.log(`[Database] Migration ${name} already applied`);
+      logger.debug('Migration already applied', { name });
     }
   }
 
-  console.log('[Database] All migrations completed');
+  logger.info('All migrations completed');
 }
 
 /**
@@ -123,7 +123,7 @@ function runMigrations() {
 function closeDatabase() {
   if (db) {
     db.close();
-    console.log('[Database] Connection closed');
+    logger.info('Database connection closed');
     db = null;
   }
 }

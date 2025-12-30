@@ -1,6 +1,14 @@
+// @ts-check
+
 /**
  * chatService.js - Service for chat functionality
  * Handles Claude API integration, message streaming, and session persistence
+ */
+
+/**
+ * @typedef {import('../types').ChatMessage} ChatMessage
+ * @typedef {import('../types').ChatSession} ChatSession
+ * @typedef {import('../types').Memory} Memory
  */
 
 import { dataService } from './DataService.js';
@@ -113,12 +121,12 @@ class ChatService {
   /**
    * Send a message to Claude with streaming response
    * @param {string} message - User message
-   * @param {Array} conversationHistory - Previous messages
-   * @param {Array} relevantMemories - Retrieved memories for context
-   * @param {Function} onChunk - Callback for streaming chunks
-   * @param {Function} onComplete - Callback when complete
-   * @param {Function} onError - Callback for errors
-   * @returns {Promise<Object>} Response object with full text and metadata
+   * @param {ChatMessage[]} [conversationHistory=[]] - Previous messages
+   * @param {Memory[]} [relevantMemories=[]] - Retrieved memories for context
+   * @param {(chunk: string) => void} onChunk - Callback for streaming chunks
+   * @param {(text: string) => void} onComplete - Callback when complete
+   * @param {(error: Error) => void} onError - Callback for errors
+   * @returns {Promise<{content: string, model: string, role: string, usage: {input_tokens: number, output_tokens: number, total_tokens: number}}>} Response object with full text and metadata
    */
   async sendMessage(message, conversationHistory = [], relevantMemories = [], onChunk, onComplete, onError) {
     if (!this.apiKey) {
@@ -254,7 +262,7 @@ class ChatService {
 
   /**
    * Build system prompt with memory context
-   * @param {Array} memories - Relevant memories
+   * @param {Memory[]} memories - Relevant memories
    * @returns {string} System prompt
    * @private
    */

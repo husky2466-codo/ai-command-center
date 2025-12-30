@@ -11,6 +11,8 @@
 const express = require('express');
 const cors = require('cors');
 const crypto = require('crypto');
+const logger = require('../utils/logger.cjs');
+const requestLogger = require('../middleware/requestLogger.cjs');
 const { getDatabase } = require('../database/db.cjs');
 const dgxManager = require('./dgxManager.cjs');
 
@@ -45,19 +47,15 @@ function authenticateApiKey(req, res, next) {
 }
 
 /**
- * Middleware to log all API requests
- */
-function logRequest(req, res, next) {
-  const timestamp = new Date().toISOString();
-  console.log(`[API Server] ${timestamp} ${req.method} ${req.path}`);
-  next();
-}
-
-/**
  * Error handler middleware
  */
 function errorHandler(err, req, res, next) {
-  console.error('[API Server] Error:', err.message);
+  logger.error('API Server error', {
+    error: err.message,
+    stack: err.stack,
+    path: req.path,
+    method: req.method
+  });
   res.status(500).json({
     success: false,
     error: err.message
@@ -71,7 +69,7 @@ function errorHandler(err, req, res, next) {
  */
 async function startApiServer(port = DEFAULT_PORT) {
   if (server) {
-    console.log('[API Server] Server already running');
+    logger.warn('API Server already running', { port });
     return;
   }
 
@@ -80,7 +78,7 @@ async function startApiServer(port = DEFAULT_PORT) {
   // Middleware
   app.use(cors({ origin: 'http://localhost:*' })); // Allow CORS for local development
   app.use(express.json());
-  app.use(logRequest);
+  app.use(requestLogger); // Winston-based request logging
   app.use(authenticateApiKey);
 
   // =========================================================================
@@ -879,7 +877,7 @@ async function startApiServer(port = DEFAULT_PORT) {
         data: emails
       });
     } catch (err) {
-      console.error('[API Server] GET /api/emails error:', err.message);
+      logger.error('GET /api/emails error', { error: err.message });
       res.status(500).json({
         success: false,
         error: err.message
@@ -925,7 +923,7 @@ async function startApiServer(port = DEFAULT_PORT) {
         data: email
       });
     } catch (err) {
-      console.error('[API Server] GET /api/emails/:id error:', err.message);
+      logger.error('GET /api/emails/:id error', { error: err.message });
       if (err.message.includes('not found')) {
         return res.status(404).json({
           success: false,
@@ -1008,7 +1006,7 @@ async function startApiServer(port = DEFAULT_PORT) {
         }
       });
     } catch (err) {
-      console.error('[API Server] POST /api/emails/send error:', err.message);
+      logger.error('POST /api/emails/send error', { error: err.message });
       res.status(500).json({
         success: false,
         error: err.message
@@ -1089,7 +1087,7 @@ async function startApiServer(port = DEFAULT_PORT) {
         data: results
       });
     } catch (err) {
-      console.error('[API Server] POST /api/emails/search error:', err.message);
+      logger.error('POST /api/emails/search error', { error: err.message });
       res.status(500).json({
         success: false,
         error: err.message
@@ -1183,7 +1181,7 @@ async function startApiServer(port = DEFAULT_PORT) {
         }
       });
     } catch (err) {
-      console.error('[API Server] POST /api/emails/batch error:', err.message);
+      logger.error('POST /api/emails/batch error', { error: err.message });
       res.status(500).json({
         success: false,
         error: err.message
@@ -1240,7 +1238,7 @@ async function startApiServer(port = DEFAULT_PORT) {
         }
       });
     } catch (err) {
-      console.error('[API Server] POST /api/emails/:id/reply error:', err.message);
+      logger.error('POST /api/emails/:id/reply error', { error: err.message });
       if (err.message.includes('not found')) {
         return res.status(404).json({
           success: false,
@@ -1303,7 +1301,7 @@ async function startApiServer(port = DEFAULT_PORT) {
         }
       });
     } catch (err) {
-      console.error('[API Server] POST /api/emails/:id/forward error:', err.message);
+      logger.error('POST /api/emails/:id/forward error', { error: err.message });
       if (err.message.includes('not found')) {
         return res.status(404).json({
           success: false,
@@ -2176,14 +2174,15 @@ async function startApiServer(port = DEFAULT_PORT) {
   // Start listening (localhost only)
   return new Promise((resolve, reject) => {
     server = app.listen(port, '127.0.0.1', () => {
-      console.log(`[API Server] Listening on http://127.0.0.1:${port}`);
-      console.log(`[API Server] API key auth: ${API_KEY ? 'enabled' : 'disabled'}`);
-      console.log('[API Server] Ready to accept connections from localhost');
+      logger.info('API Server started', {
+        url: `http://127.0.0.1:${port}`,
+        apiKeyAuth: API_KEY ? 'enabled' : 'disabled'
+      });
       resolve();
     });
 
     server.on('error', (err) => {
-      console.error('[API Server] Failed to start:', err.message);
+      logger.error('API Server failed to start', { error: err.message, port });
       reject(err);
     });
   });
@@ -2195,13 +2194,13 @@ async function startApiServer(port = DEFAULT_PORT) {
  */
 async function stopApiServer() {
   if (!server) {
-    console.log('[API Server] No server to stop');
+    logger.debug('No API server to stop');
     return;
   }
 
   return new Promise((resolve) => {
     server.close(() => {
-      console.log('[API Server] Server stopped');
+      logger.info('API Server stopped');
       server = null;
       app = null;
       resolve();

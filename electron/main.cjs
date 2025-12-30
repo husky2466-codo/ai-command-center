@@ -3,14 +3,19 @@ const path = require('path');
 const fs = require('fs');
 const pty = require('node-pty');
 const { NodeSSH } = require('node-ssh');
+const logger = require('./utils/logger.cjs');
+const { setupErrorHandlers, wrapIpcHandler } = require('./utils/errorHandler.cjs');
 const { initializeDatabase, closeDatabase, getDatabase } = require('./database/db.cjs');
 const { registerDatabaseHandlers } = require('./database/ipc.cjs');
 const { initializeOAuth2Client, authenticateGoogle, refreshTokens, revokeAccess, getOAuth2Client } = require('./services/googleAuth.cjs');
 const { listStoredAccounts, getEncryptionStatus } = require('./services/tokenStorage.cjs');
 const GoogleAccountService = require('./services/googleAccountService.cjs');
-const { startApiServer, stopApiServer, getServerStatus } = require('./services/apiServer.cjs');
+const { startApiServer, stopApiServer, getServerStatus } = require('./api/server.cjs');
 const dgxManager = require('./services/dgxManager.cjs');
 const projectWatcher = require('./services/projectWatcher.cjs');
+
+// Setup error handlers for main process
+setupErrorHandlers();
 
 // Prevent multiple instances
 const gotTheLock = app.requestSingleInstanceLock();
@@ -184,22 +189,23 @@ function createWindow() {
   // Load the app
   if (isDev) {
     mainWindow.loadURL('http://localhost:5173');
-    mainWindow.webContents.openDevTools();
+    // DevTools disabled - use Ctrl+Shift+I to open manually
+    // mainWindow.webContents.openDevTools();
   } else {
     mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
   }
 
   // Add error handlers
   mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
-    console.error('[Main] Window failed to load:', errorCode, errorDescription);
+    logger.error('Window failed to load', { errorCode, errorDescription });
   });
 
   mainWindow.webContents.on('crashed', () => {
-    console.error('[Main] Renderer process crashed');
+    logger.error('Renderer process crashed');
   });
 
   mainWindow.on('unresponsive', () => {
-    console.error('[Main] Window became unresponsive');
+    logger.error('Window became unresponsive');
   });
 
   mainWindow.once('ready-to-show', () => {
@@ -213,6 +219,13 @@ function createWindow() {
 }
 
 app.whenReady().then(async () => {
+  logger.info('Application starting', {
+    version: app.getVersion(),
+    electron: process.versions.electron,
+    node: process.versions.node,
+    isDev
+  });
+
   // Create application menu
   createMenu();
 
@@ -231,12 +244,12 @@ app.whenReady().then(async () => {
   try {
     initializeDatabase();
     registerDatabaseHandlers();
-    console.log('[Main] Database initialized successfully');
+    logger.info('Database initialized successfully');
 
     // Reset DGX connection states (in case of previous crash)
     dgxManager.resetConnectionStates();
   } catch (err) {
-    console.error('[Main] Failed to initialize database:', err.message);
+    logger.error('Failed to initialize database', { error: err.message, stack: err.stack });
     // Continue running - some features may be unavailable
   }
 
@@ -244,9 +257,9 @@ app.whenReady().then(async () => {
   try {
     const apiPort = process.env.API_SERVER_PORT || 3939;
     await startApiServer(parseInt(apiPort));
-    console.log('[Main] HTTP API server started successfully');
+    logger.info('HTTP API server started successfully', { port: apiPort });
   } catch (err) {
-    console.error('[Main] Failed to start HTTP API server:', err.message);
+    logger.error('Failed to start HTTP API server', { error: err.message, stack: err.stack });
     // Continue running - API server is optional
   }
 
@@ -258,12 +271,12 @@ app.whenReady().then(async () => {
         clientId: envKeys.GOOGLE_CLIENT_ID,
         clientSecret: envKeys.GOOGLE_CLIENT_SECRET
       });
-      console.log('[Main] Google OAuth2 client initialized');
+      logger.info('Google OAuth2 client initialized');
     } else {
-      console.warn('[Main] Google OAuth2 credentials not found in .env');
+      logger.warn('Google OAuth2 credentials not found in .env');
     }
   } catch (err) {
-    console.error('[Main] Failed to initialize Google OAuth2:', err.message);
+    logger.error('Failed to initialize Google OAuth2', { error: err.message });
   }
 
   // Sync any existing token accounts to database
@@ -281,15 +294,15 @@ app.whenReady().then(async () => {
           const tokensLoaded = await loadStoredTokens(email);
           if (tokensLoaded) {
             const accountId = await GoogleAccountService.addAccount(db, email, oauth2Client);
-            console.log(`[Main] Added stored account to database: ${email} (${accountId})`);
+            logger.info('Added stored account to database', { email, accountId });
           } else {
-            console.warn(`[Main] Could not load tokens for ${email}, skipping`);
+            logger.warn('Could not load tokens for account', { email });
           }
         }
       }
     }
   } catch (err) {
-    console.error('[Main] Failed to sync stored accounts:', err.message);
+    logger.error('Failed to sync stored accounts', { error: err.message });
   }
 
   // Register custom protocol for OAuth callback (alternative to localhost)
@@ -318,32 +331,35 @@ app.on('window-all-closed', () => {
 });
 
 app.on('before-quit', async () => {
+  logger.info('Application shutting down');
+
   // Stop all project watchers
   try {
     await projectWatcher.stopAllWatchers();
-    console.log('[Main] All project watchers stopped');
+    logger.info('All project watchers stopped');
   } catch (err) {
-    console.error('[Main] Error stopping project watchers:', err.message);
+    logger.error('Error stopping project watchers', { error: err.message });
   }
 
   // Disconnect all DGX connections
   try {
     dgxManager.disconnectAll();
-    console.log('[Main] All DGX connections closed');
+    logger.info('All DGX connections closed');
   } catch (err) {
-    console.error('[Main] Error disconnecting DGX:', err.message);
+    logger.error('Error disconnecting DGX', { error: err.message });
   }
 
   // Stop API server
   try {
     await stopApiServer();
-    console.log('[Main] HTTP API server stopped');
+    logger.info('HTTP API server stopped');
   } catch (err) {
-    console.error('[Main] Error stopping API server:', err.message);
+    logger.error('Error stopping API server', { error: err.message });
   }
 
   // Close database
   closeDatabase();
+  logger.info('Application shutdown complete');
 });
 
 // IPC Handlers
@@ -483,6 +499,31 @@ ipcMain.handle('get-env-keys', async () => {
 
   return keys;
 });
+
+// Log errors from renderer process
+ipcMain.handle('log-error', wrapIpcHandler(async (event, errorData) => {
+  logger.error('Renderer Process Error:', {
+    error: errorData.error,
+    context: errorData.context,
+    timestamp: errorData.timestamp,
+    userAgent: errorData.userAgent,
+    url: errorData.url
+  });
+
+  return { success: true };
+}, 'log-error'));
+
+// Show error dialog (for critical errors)
+ipcMain.handle('show-error-dialog', wrapIpcHandler(async (event, options) => {
+  const { title, message, detail } = options;
+
+  dialog.showErrorBox(
+    title || 'Error',
+    detail ? `${message}\n\n${detail}` : message
+  );
+
+  return { success: true };
+}, 'show-error-dialog'));
 
 // Helper function to load env keys (used internally)
 async function loadEnvKeys() {

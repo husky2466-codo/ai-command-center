@@ -1,7 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { Terminal as XTerm } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { useTheme } from '../../themes/ThemeContext';
+import { Wand2 } from 'lucide-react';
+import PromptCrafter from './PromptCrafter';
 import '@xterm/xterm/css/xterm.css';
 import './Terminal.css';
 
@@ -24,6 +26,7 @@ const Terminal = ({ apiKeys }) => {
   const fitAddonRef = useRef(null);
   const terminalIdRef = useRef(null);
   const [isReady, setIsReady] = useState(false);
+  const [showCrafter, setShowCrafter] = useState(false);
   const { currentTheme } = useTheme();
 
   // Initialize terminal once on mount
@@ -152,22 +155,47 @@ const Terminal = ({ apiKeys }) => {
     }
   }, [currentTheme]);
 
+  // Handler to send text to terminal PTY
+  const handleSendToTerminal = useCallback((text) => {
+    if (terminalIdRef.current) {
+      window.electronAPI.writeToTerminal(terminalIdRef.current, text);
+    }
+  }, []);
+
   return (
-    <div className="terminal-container">
-      <div className="terminal-header">
-        <div className="terminal-title">
-          <span className="terminal-icon">▶</span>
-          <span>Integrated Terminal</span>
+    <div className="terminal-with-crafter">
+      <div className="terminal-main" style={{ flex: showCrafter ? '0 0 65%' : '1' }}>
+        <div className="terminal-header">
+          <div className="terminal-title">
+            <span className="terminal-icon">▶</span>
+            <span>Integrated Terminal</span>
+          </div>
+          <div className="terminal-controls">
+            <button
+              className={`crafter-toggle ${showCrafter ? 'active' : ''}`}
+              onClick={() => setShowCrafter(!showCrafter)}
+              title="Prompt Crafter"
+            >
+              <Wand2 size={16} />
+            </button>
+          </div>
+          <div className="terminal-status">
+            {isReady ? (
+              <span className="status-ready">● Connected</span>
+            ) : (
+              <span className="status-loading">● Connecting...</span>
+            )}
+          </div>
         </div>
-        <div className="terminal-status">
-          {isReady ? (
-            <span className="status-ready">● Connected</span>
-          ) : (
-            <span className="status-loading">● Connecting...</span>
-          )}
-        </div>
+        <div className="terminal-wrapper" ref={terminalRef}></div>
       </div>
-      <div className="terminal-wrapper" ref={terminalRef}></div>
+
+      {showCrafter && (
+        <PromptCrafter
+          onSendToTerminal={handleSendToTerminal}
+          onClose={() => setShowCrafter(false)}
+        />
+      )}
     </div>
   );
 };

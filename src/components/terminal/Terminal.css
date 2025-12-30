@@ -1,3 +1,16 @@
+.terminal-with-crafter {
+  display: flex;
+  height: 100%;
+  width: 100%;
+}
+
+.terminal-main {
+  display: flex;
+  flex-direction: column;
+  min-width: 400px;
+  transition: flex 0.3s ease;
+}
+
 .terminal-container {
   display: flex;
   flex-direction: column;
@@ -27,6 +40,35 @@
 .terminal-icon {
   color: var(--accent-primary);
   font-size: 18px;
+}
+
+.terminal-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.crafter-toggle {
+  background: none;
+  border: 1px solid var(--border-primary);
+  color: var(--text-secondary);
+  padding: 6px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  transition: all 0.2s;
+}
+
+.crafter-toggle:hover {
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
+}
+
+.crafter-toggle.active {
+  background: var(--accent-primary);
+  border-color: var(--accent-primary);
+  color: var(--bg-primary);
 }
 
 .terminal-status {

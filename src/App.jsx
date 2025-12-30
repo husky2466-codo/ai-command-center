@@ -21,12 +21,17 @@ import DGXSpark from './components/dgx-spark/DGXSpark';
 import { ThemeProvider } from './themes/ThemeContext';
 import { LayoutProvider, useLayout } from './components/layout/LayoutContext';
 import SplitLayout from './components/layout/SplitLayout';
+import { ErrorBoundary, setupGlobalErrorHandlers } from './utils/errorHandler.js';
+import ErrorFallback from './components/shared/ErrorFallback';
 import './styles/app.css';
 
 // Load database test utility in development
 if (import.meta.env.DEV) {
   import('./utils/testDatabase.js');
 }
+
+// Setup global error handlers once
+setupGlobalErrorHandlers();
 
 const APPS = {
   dashboard: { id: 'dashboard', name: 'Dashboard', component: Dashboard, accent: '#ffd700' },
@@ -154,10 +159,14 @@ function AppContent() {
 
 export default function App() {
   return (
-    <ThemeProvider>
-      <LayoutProvider>
-        <AppContent />
-      </LayoutProvider>
-    </ThemeProvider>
+    <ErrorBoundary fallback={(props) => <ErrorFallback {...props} />}>
+      <ThemeProvider>
+        <LayoutProvider>
+          <ErrorBoundary fallback={(props) => <ErrorFallback {...props} />}>
+            <AppContent />
+          </ErrorBoundary>
+        </LayoutProvider>
+      </ThemeProvider>
+    </ErrorBoundary>
   );
 }
