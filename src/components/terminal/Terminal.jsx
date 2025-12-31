@@ -65,7 +65,9 @@ const Terminal = ({ apiKeys }) => {
         brightWhite: '#ffffff'
       },
       allowProposedApi: true,
-      scrollback: 10000
+      scrollback: 10000,
+      // Enable right-click selection
+      rightClickSelectsWord: false
     });
 
     const fitAddon = new FitAddon();
@@ -77,6 +79,71 @@ const Terminal = ({ apiKeys }) => {
     // Open terminal in the DOM
     term.open(terminalRef.current);
     fitAddon.fit();
+
+    // Setup copy/paste functionality
+    // 1. Copy on selection (automatically copy selected text)
+    term.onSelectionChange(() => {
+      const selection = term.getSelection();
+      if (selection) {
+        navigator.clipboard.writeText(selection).catch(err => {
+          console.error('Failed to copy to clipboard:', err);
+        });
+      }
+    });
+
+    // 2. Handle paste from keyboard (Ctrl+V or Cmd+V)
+    term.attachCustomKeyEventHandler((event) => {
+      // Check for paste command (Ctrl+V on Windows/Linux, Cmd+V on Mac)
+      const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+      const pasteKey = (isMac && event.metaKey) || (!isMac && event.ctrlKey);
+
+      if (pasteKey && event.key === 'v' && event.type === 'keydown') {
+        // Prevent default to avoid terminal processing
+        event.preventDefault();
+
+        // Read from clipboard and paste
+        navigator.clipboard.readText().then(text => {
+          if (terminalIdRef.current && text) {
+            window.electronAPI.writeToTerminal(terminalIdRef.current, text);
+          }
+        }).catch(err => {
+          console.error('Failed to read from clipboard:', err);
+        });
+
+        return false; // Prevent xterm from processing this key
+      }
+
+      // Check for copy command (Ctrl+C or Cmd+C) when text is selected
+      const copyKey = (isMac && event.metaKey) || (!isMac && event.ctrlKey);
+      if (copyKey && event.key === 'c' && event.type === 'keydown') {
+        const selection = term.getSelection();
+        if (selection) {
+          // If text is selected, copy it and prevent sending SIGINT
+          event.preventDefault();
+          navigator.clipboard.writeText(selection).catch(err => {
+            console.error('Failed to copy to clipboard:', err);
+          });
+          return false; // Prevent xterm from processing this key
+        }
+        // If no selection, let Ctrl+C pass through as SIGINT
+      }
+
+      return true; // Let xterm process all other keys normally
+    });
+
+    // 3. Right-click context menu paste support
+    terminalRef.current?.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+
+      // Read from clipboard and paste on right-click
+      navigator.clipboard.readText().then(text => {
+        if (terminalIdRef.current && text) {
+          window.electronAPI.writeToTerminal(terminalIdRef.current, text);
+        }
+      }).catch(err => {
+        console.error('Failed to read from clipboard:', err);
+      });
+    });
 
     // Create PTY process
     window.electronAPI.createTerminal().then(terminalId => {

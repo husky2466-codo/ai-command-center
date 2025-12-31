@@ -13,7 +13,13 @@
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "test:api": "node test-api.js",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "db:check": "electron electron/utils/dbRepair.cjs check",
+    "db:checkpoint": "electron electron/utils/dbRepair.cjs checkpoint",
+    "db:vacuum": "electron electron/utils/dbRepair.cjs vacuum",
+    "db:backup": "electron electron/utils/dbRepair.cjs backup",
+    "db:recover": "electron electron/utils/dbRepair.cjs recover",
+    "db:fresh": "electron electron/utils/dbRepair.cjs fresh"
   },
   "author": "Myers",
   "license": "MIT",

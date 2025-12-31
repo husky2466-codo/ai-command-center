@@ -91,17 +91,24 @@ function CalendarView({ apiKeys }) {
 
       const { startDate, endDate } = getDateRange();
 
+      console.log('[CalendarView] Loading events from', startDate.toISOString(), 'to', endDate.toISOString());
+
       const result = await window.electronAPI.googleGetEvents(selectedAccountId, {
         timeMin: startDate.toISOString(),
         timeMax: endDate.toISOString(),
         maxResults: 250
       });
 
+      console.log('[CalendarView] Received result:', result);
+
       // Handle both raw array and {success, data} response formats
       const eventsList = Array.isArray(result) ? result : (result?.data || result || []);
+
+      console.log('[CalendarView] Parsed events list:', eventsList, 'Length:', eventsList?.length);
+
       setEvents(Array.isArray(eventsList) ? eventsList : []);
     } catch (err) {
-      console.error('Failed to load events:', err);
+      console.error('[CalendarView] Failed to load events:', err);
       setError('Failed to load events: ' + err.message);
     } finally {
       setLoading(false);
@@ -113,10 +120,14 @@ function CalendarView({ apiKeys }) {
 
     try {
       setSyncing(true);
-      await window.electronAPI.googleSyncCalendar(selectedAccountId);
+      console.log('[CalendarView] Starting calendar sync for account:', selectedAccountId);
+
+      const syncResult = await window.electronAPI.googleSyncCalendar(selectedAccountId);
+      console.log('[CalendarView] Sync result:', syncResult);
+
       await loadEvents();
     } catch (err) {
-      console.error('Failed to sync calendar:', err);
+      console.error('[CalendarView] Failed to sync calendar:', err);
       setError('Failed to sync calendar: ' + err.message);
     } finally {
       setSyncing(false);

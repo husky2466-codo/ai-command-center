@@ -4,6 +4,21 @@ Architecture decisions, patterns, and feature plans that persist across sessions
 
 ---
 
+## Recent Updates
+
+### 2025-12-31 - Terminal Copy/Paste Implementation
+- Added full clipboard support to integrated terminal (xterm.js)
+- Features:
+  - Selection-based auto-copy (select text = copied)
+  - Keyboard shortcuts: Ctrl+C/Ctrl+V (Cmd+C/Cmd+V on Mac)
+  - Right-click paste support
+  - Smart Ctrl+C: copies if text selected, sends SIGINT if not
+- Implementation uses Web Clipboard API (no additional packages)
+- Platform detection for Mac vs Windows/Linux
+- See `TERMINAL-CLIPBOARD-FIX.md` for details
+
+---
+
 ## Architecture Decisions
 
 ### Electron + React (Vite)
@@ -111,6 +126,7 @@ Architecture decisions, patterns, and feature plans that persist across sessions
 - Autofill.enable DevTools errors are benign (Chromium feature not available)
 - RAG Export React Error #31 - IPC response type mismatch - fixed 2025-12-18
 - RAG Export 0 Q&A pairs - agents array not passed to modal - fixed 2025-12-18
+- Database corruption "malformed disk image" - fixed 2025-12-30 with automatic repair system
 
 ---
 
@@ -572,6 +588,119 @@ Always check for conflicts before creating new migrations:
 ls electron/database/migrations/
 # Ensure no duplicate numbers (e.g., two 007_* files)
 ```
+
+---
+
+## Database Corruption & Repair System (Implemented 2025-12-30)
+
+### Problem
+SQLite WAL (Write-Ahead Logging) can become corrupted if:
+- App crashes before checkpoint
+- Improper shutdown (force quit)
+- Multiple app instances access database
+- File system errors or antivirus interference
+
+**Symptom**: "database disk image is malformed" error
+
+### Solution: Multi-Layer Auto-Repair
+
+#### 1. Automatic Repair on Startup (`electron/database/db.cjs`)
+
+**Health Check**:
+```javascript
+checkDatabaseHealth(dbPath)
+  → PRAGMA integrity_check
+  → If corrupted: auto-backup + attemptWALRepair()
+```
+
+**Auto-Checkpoint**:
+- Startup: `PRAGMA wal_checkpoint(PASSIVE)` - gentle merge
+- Shutdown: `PRAGMA wal_checkpoint(TRUNCATE)` - full merge + truncate WAL
+- Busy timeout: 5000ms (5 seconds) for lock handling
+
+**Auto-Repair Flow**:
+1. Detect corruption → Create backup (`database.sqlite.corrupt-TIMESTAMP`)
+2. Attempt WAL checkpoint (`TRUNCATE` mode)
+3. Verify integrity post-checkpoint
+4. If fails → Delete WAL/SHM files (forces SQLite recovery)
+
+#### 2. Manual Repair Utility (`electron/utils/dbRepair.cjs`)
+
+**CLI Commands** (run when app is closed):
+```bash
+npm run db:check       # PRAGMA integrity_check
+npm run db:checkpoint  # PRAGMA wal_checkpoint(TRUNCATE)
+npm run db:vacuum      # VACUUM + optimize
+npm run db:backup      # Timestamped backup to db-backups/
+npm run db:recover     # Full dump/restore to new database
+npm run db:fresh       # DELETE DATABASE (backup first!)
+```
+
+**Typical Repair Flow**:
+```bash
+# Quick fix (90% of cases)
+npm run db:checkpoint
+
+# Standard repair
+npm run db:backup && npm run db:checkpoint && npm run db:vacuum
+
+# Nuclear option (data preserved in backup)
+npm run db:backup && npm run db:fresh
+```
+
+#### 3. Logging Integration (Winston)
+
+All database operations logged to:
+- `%APPDATA%\ai-command-center\logs\combined-YYYY-MM-DD.log`
+- `%APPDATA%\ai-command-center\logs\error-YYYY-MM-DD.log`
+
+**Log Signatures**:
+```
+[INFO] Database health check: OK
+[INFO] ✓ Database repaired successfully via WAL checkpoint
+[ERROR] Database corruption detected
+[WARN] WAL checkpoint failed on startup
+```
+
+#### 4. Prevention Measures
+
+**App-level**:
+- `busy_timeout = 5000` - Handles concurrent access
+- Checkpoint on startup (PASSIVE) + shutdown (TRUNCATE)
+- Single instance lock prevents multiple processes
+- Error handlers for crashes (did-fail-load, crashed, unresponsive)
+
+**User-level** (documented):
+- Always close app properly (don't force-quit)
+- Add `%APPDATA%\ai-command-center\` to antivirus exclusions
+- Don't run multiple instances
+- Check disk health if corruption persists
+
+### Documentation
+
+- **User Guide**: `docs/DATABASE-TROUBLESHOOTING.md` (400+ lines)
+- **Utility README**: `electron/utils/README.md` (250+ lines)
+- **Implementation**: `DATABASE-FIX-SUMMARY.md` (technical details)
+
+### Database Files
+
+**Location**: `%APPDATA%\ai-command-center\`
+- `database.sqlite` - Main database
+- `database.sqlite-wal` - Write-Ahead Log (pending changes)
+- `database.sqlite-shm` - Shared memory (WAL index)
+- `database.sqlite.corrupt-TIMESTAMP` - Auto-backup when corruption detected
+
+**Backups**: `%APPDATA%\ai-command-center\db-backups\`
+- `database-YYYY-MM-DDTHH-MM-SS.sqlite` - Manual backups
+- `dump-YYYY-MM-DDTHH-MM-SS.sql` - SQL dumps from recovery
+
+### Key Learnings
+
+1. **WAL mode is fast but fragile** - Requires proper checkpoint discipline
+2. **Auto-repair saves users** - Most corruption fixed on startup without user action
+3. **Backups before repair** - Always preserve corrupted state for analysis
+4. **Graceful shutdown critical** - Checkpoint WAL before close
+5. **Logging essential** - Users can self-diagnose from logs
 
 ---
 

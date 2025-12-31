@@ -1142,21 +1142,29 @@ class GoogleAccountService {
    * @param {string} accountId - Account ID
    * @param {Object} options - Sync options
    * @param {string} options.calendarId - Calendar ID (default: 'primary')
-   * @param {number} options.maxResults - Max events to fetch (default: 100)
+   * @param {number} options.maxResults - Max events to fetch (default: 250)
+   * @param {string} options.timeMin - Start time (ISO string, default: 6 months ago)
+   * @param {string} options.timeMax - End time (ISO string, default: 1 year from now)
    * @returns {Promise<Object>} Sync results
    */
   async syncCalendar(accountId, options = {}) {
     await this.ensureValidToken();
 
-    const { calendarId = 'primary', maxResults = 100 } = options;
+    const {
+      calendarId = 'primary',
+      maxResults = 250,
+      timeMin = new Date(Date.now() - 6 * 30 * 24 * 60 * 60 * 1000).toISOString(), // 6 months ago
+      timeMax = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString() // 1 year from now
+    } = options;
 
-    console.log(`[GoogleService] Syncing calendar for ${this.email}`);
+    console.log(`[GoogleService] Syncing calendar for ${this.email} (${timeMin} to ${timeMax})`);
 
     try {
       const response = await withExponentialBackoff(async () => {
         return await this.calendar.events.list({
           calendarId,
-          timeMin: new Date().toISOString(),
+          timeMin,
+          timeMax,
           maxResults,
           singleEvents: true,
           orderBy: 'startTime'
@@ -1217,23 +1225,85 @@ class GoogleAccountService {
   }
 
   /**
-   * Get calendar events from local database
+   * Get calendar events from local database OR fetch from Google Calendar
    * @param {string} accountId - Account ID
    * @param {Object} options - Query options
-   * @param {number} options.startTime - Start time (Unix timestamp)
-   * @param {number} options.endTime - End time (Unix timestamp)
+   * @param {string} options.timeMin - Start time (ISO string) - for live fetch
+   * @param {string} options.timeMax - End time (ISO string) - for live fetch
+   * @param {number} options.startTime - Start time (Unix timestamp) - for DB query
+   * @param {number} options.endTime - End time (Unix timestamp) - for DB query
    * @param {number} options.limit - Max results (default: 100)
+   * @param {number} options.maxResults - Max results (alias for Google API)
+   * @param {boolean} options.useLiveData - Fetch from Google instead of DB (default: true)
    * @returns {Promise<Array>} List of events
    */
   async getEvents(accountId, options = {}) {
-    const { startTime = Date.now(), endTime = null, limit = 100 } = options;
+    // Support both DB query (startTime/endTime timestamps) and Google API (timeMin/timeMax ISO strings)
+    const {
+      timeMin,
+      timeMax,
+      startTime,
+      endTime,
+      limit = 100,
+      maxResults = 250,
+      useLiveData = true
+    } = options;
+
+    // If timeMin/timeMax provided (ISO strings), fetch live from Google Calendar
+    if (useLiveData && (timeMin || timeMax)) {
+      console.log(`[GoogleService] Fetching live calendar events for ${this.email}`);
+      await this.ensureValidToken();
+
+      try {
+        const response = await withExponentialBackoff(async () => {
+          return await this.calendar.events.list({
+            calendarId: 'primary',
+            timeMin: timeMin || new Date().toISOString(),
+            timeMax: timeMax,
+            maxResults: maxResults || limit,
+            singleEvents: true,
+            orderBy: 'startTime'
+          });
+        });
+
+        const events = response.data.items || [];
+        console.log(`[GoogleService] Fetched ${events.length} live calendar events`);
+
+        // Transform events to match frontend expectations
+        return events.map(event => ({
+          id: event.id,
+          summary: event.summary,
+          description: event.description,
+          location: event.location,
+          start: event.start, // Keep original structure { dateTime, date, timeZone }
+          end: event.end,
+          status: event.status,
+          attendees: event.attendees || [],
+          organizer: event.organizer,
+          htmlLink: event.htmlLink,
+          hangoutLink: event.hangoutLink,
+          created: event.created,
+          updated: event.updated,
+          recurringEventId: event.recurringEventId,
+          recurrence: event.recurrence
+        }));
+      } catch (error) {
+        console.error(`[GoogleService] Failed to fetch live calendar events:`, error.message);
+        // Fall back to DB query
+        console.log(`[GoogleService] Falling back to local DB`);
+      }
+    }
+
+    // Fall back to local database query
+    const queryStartTime = startTime || (timeMin ? new Date(timeMin).getTime() : Date.now());
+    const queryEndTime = endTime || (timeMax ? new Date(timeMax).getTime() : null);
 
     let query = 'SELECT * FROM account_calendar_events WHERE account_id = ? AND start_time >= ?';
-    const params = [accountId, startTime];
+    const params = [accountId, queryStartTime];
 
-    if (endTime) {
+    if (queryEndTime) {
       query += ' AND start_time <= ?';
-      params.push(endTime);
+      params.push(queryEndTime);
     }
 
     query += ' ORDER BY start_time ASC LIMIT ?';
@@ -1242,13 +1312,35 @@ class GoogleAccountService {
     const stmt = this.db.prepare(query);
     const events = stmt.all(...params);
 
-    return events.map(event => ({
-      ...event,
-      attendees: JSON.parse(event.attendees || '[]'),
-      recurrence: JSON.parse(event.recurrence || '[]'),
-      reminders: JSON.parse(event.reminders || '{}'),
-      raw_data: null
-    }));
+    console.log(`[GoogleService] Retrieved ${events.length} events from local DB`);
+
+    // Transform DB events to match Google Calendar API format
+    return events.map(event => {
+      const rawData = event.raw_data ? JSON.parse(event.raw_data) : null;
+      return {
+        id: event.id,
+        summary: event.summary,
+        description: event.description,
+        location: event.location,
+        start: rawData?.start || {
+          dateTime: event.all_day ? null : new Date(event.start_time).toISOString(),
+          date: event.all_day ? new Date(event.start_time).toISOString().split('T')[0] : null
+        },
+        end: rawData?.end || {
+          dateTime: event.all_day ? null : new Date(event.end_time).toISOString(),
+          date: event.all_day ? new Date(event.end_time).toISOString().split('T')[0] : null
+        },
+        status: event.status,
+        attendees: JSON.parse(event.attendees || '[]'),
+        organizer: rawData?.organizer || { email: event.organizer_email },
+        htmlLink: rawData?.htmlLink,
+        hangoutLink: rawData?.hangoutLink,
+        created: rawData?.created,
+        updated: rawData?.updated,
+        recurringEventId: rawData?.recurringEventId,
+        recurrence: JSON.parse(event.recurrence || '[]')
+      };
+    });
   }
 
   /**
