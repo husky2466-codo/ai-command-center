@@ -1157,7 +1157,8 @@ class GoogleAccountService {
       timeMax = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString() // 1 year from now
     } = options;
 
-    console.log(`[GoogleService] Syncing calendar for ${this.email} (${timeMin} to ${timeMax})`);
+    const DEBUG_CALENDAR = process.env.DEBUG_CALENDAR === 'true';
+    if (DEBUG_CALENDAR) console.log(`[GoogleService] Syncing calendar for ${this.email} (${timeMin} to ${timeMax})`);
 
     try {
       const response = await withExponentialBackoff(async () => {
@@ -1179,7 +1180,7 @@ class GoogleAccountService {
         syncedCount++;
       }
 
-      console.log(`[GoogleService] Calendar sync complete: ${syncedCount} events`);
+      if (DEBUG_CALENDAR) console.log(`[GoogleService] Calendar sync complete: ${syncedCount} events`);
       return { synced: syncedCount };
     } catch (error) {
       console.error(`[GoogleService] Calendar sync failed:`, error.message);
@@ -1249,9 +1250,12 @@ class GoogleAccountService {
       useLiveData = true
     } = options;
 
+    const DEBUG_CALENDAR = process.env.DEBUG_CALENDAR === 'true';
+    let apiFailed = false;
+
     // If timeMin/timeMax provided (ISO strings), fetch live from Google Calendar
     if (useLiveData && (timeMin || timeMax)) {
-      console.log(`[GoogleService] Fetching live calendar events for ${this.email}`);
+      if (DEBUG_CALENDAR) console.log(`[GoogleService] Fetching live calendar events for ${this.email}`);
       await this.ensureValidToken();
 
       try {
@@ -1267,7 +1271,7 @@ class GoogleAccountService {
         });
 
         const events = response.data.items || [];
-        console.log(`[GoogleService] Fetched ${events.length} live calendar events`);
+        if (DEBUG_CALENDAR) console.log(`[GoogleService] Fetched ${events.length} live calendar events`);
 
         // Transform events to match frontend expectations
         return events.map(event => ({
@@ -1290,7 +1294,8 @@ class GoogleAccountService {
       } catch (error) {
         console.error(`[GoogleService] Failed to fetch live calendar events:`, error.message);
         // Fall back to DB query
-        console.log(`[GoogleService] Falling back to local DB`);
+        if (DEBUG_CALENDAR) console.log(`[GoogleService] Falling back to local DB`);
+        apiFailed = true;
       }
     }
 
@@ -1312,11 +1317,23 @@ class GoogleAccountService {
     const stmt = this.db.prepare(query);
     const events = stmt.all(...params);
 
-    console.log(`[GoogleService] Retrieved ${events.length} events from local DB`);
+    if (DEBUG_CALENDAR) console.log(`[GoogleService] Retrieved ${events.length} events from local DB`);
+
+    // If both API and DB failed/empty, log warning
+    if (apiFailed && events.length === 0) {
+      console.warn(`[GoogleService] Both live API and local DB returned no events for account ${accountId}. User may see empty calendar.`);
+    }
 
     // Transform DB events to match Google Calendar API format
     return events.map(event => {
       const rawData = event.raw_data ? JSON.parse(event.raw_data) : null;
+
+      // For all-day events without rawData, use UTC date to avoid timezone shifts
+      const getDateOnly = (timestamp) => {
+        const date = new Date(timestamp);
+        return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}-${String(date.getUTCDate()).padStart(2, '0')}`;
+      };
+
       return {
         id: event.id,
         summary: event.summary,
@@ -1324,11 +1341,11 @@ class GoogleAccountService {
         location: event.location,
         start: rawData?.start || {
           dateTime: event.all_day ? null : new Date(event.start_time).toISOString(),
-          date: event.all_day ? new Date(event.start_time).toISOString().split('T')[0] : null
+          date: event.all_day ? getDateOnly(event.start_time) : null
         },
         end: rawData?.end || {
           dateTime: event.all_day ? null : new Date(event.end_time).toISOString(),
-          date: event.all_day ? new Date(event.end_time).toISOString().split('T')[0] : null
+          date: event.all_day ? getDateOnly(event.end_time) : null
         },
         status: event.status,
         attendees: JSON.parse(event.attendees || '[]'),

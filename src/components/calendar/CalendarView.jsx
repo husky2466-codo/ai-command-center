@@ -91,20 +91,14 @@ function CalendarView({ apiKeys }) {
 
       const { startDate, endDate } = getDateRange();
 
-      console.log('[CalendarView] Loading events from', startDate.toISOString(), 'to', endDate.toISOString());
-
       const result = await window.electronAPI.googleGetEvents(selectedAccountId, {
         timeMin: startDate.toISOString(),
         timeMax: endDate.toISOString(),
         maxResults: 250
       });
 
-      console.log('[CalendarView] Received result:', result);
-
       // Handle both raw array and {success, data} response formats
       const eventsList = Array.isArray(result) ? result : (result?.data || result || []);
-
-      console.log('[CalendarView] Parsed events list:', eventsList, 'Length:', eventsList?.length);
 
       setEvents(Array.isArray(eventsList) ? eventsList : []);
     } catch (err) {
@@ -120,10 +114,8 @@ function CalendarView({ apiKeys }) {
 
     try {
       setSyncing(true);
-      console.log('[CalendarView] Starting calendar sync for account:', selectedAccountId);
 
-      const syncResult = await window.electronAPI.googleSyncCalendar(selectedAccountId);
-      console.log('[CalendarView] Sync result:', syncResult);
+      await window.electronAPI.googleSyncCalendar(selectedAccountId);
 
       await loadEvents();
     } catch (err) {
@@ -627,12 +619,7 @@ function CalendarView({ apiKeys }) {
             >
               Week
             </button>
-            <button
-              className={`calendar-view-btn ${viewMode === 'day' ? 'active' : ''}`}
-              onClick={() => setViewMode('day')}
-            >
-              Day
-            </button>
+            {/* Day view hidden until implemented */}
           </div>
 
           {/* Actions */}
@@ -679,7 +666,6 @@ function CalendarView({ apiKeys }) {
             <div className="calendar-main">
               {viewMode === 'month' && renderMonthView()}
               {viewMode === 'week' && renderWeekView()}
-              {viewMode === 'day' && <div className="calendar-day-view">Day view coming soon...</div>}
             </div>
 
             {/* Event detail panel */}
