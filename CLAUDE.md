@@ -608,23 +608,67 @@ Ready to begin **Phase 1: Core Infrastructure**
 
 ## Current Status
 
-- **Email Module**: Complete with Phases 1-3 (compose, signatures, labels, templates, search, settings, keyboard shortcuts)
-- **DGX Spark**: GPU monitoring, SSH connections, Ollama integration with Chain Runner
-- **Project Watcher**: Automatic progress tracking via file system monitoring
-- **API Server**: Local HTTP server at localhost:3939 for Claude Code integration
-- **Theme System**: 6 themes fully functional, persists to localStorage
-- **Split View**: Working with full-width content, layout persists
-- **Terminal**: Respects theme changes in real-time
-- **Window**: Starts maximized correctly
-- **Desktop Shortcut**: Updated and working
-- **ChainRunner**: Refactored into modular architecture (8 focused files)
+- **Email Module**: Complete - Gmail API fully integrated (was mistakenly thought to be mock data)
+- **Calendar Module**: Multi-calendar sync (supports linked apps like Lasso)
+- **Contacts Module**: Fixed to display synced Google contacts (338+ contacts)
+- **DGX Spark**: GPU monitoring, SSH connections (fixed ~ path expansion)
+- **Terminal**: Copy/paste support, theme integration
+- **Google OAuth**: Fresh credentials (project: ai-command-center-482917)
+- **Database**: Auto-repair system, manual recovery tools
 
 ## Next Steps
 
-- Test Project Watcher with real project folders
-- Email: Connect to real Gmail API (currently mock data)
-- DGX Spark: Test with actual DGX hardware
+- Test multi-calendar sync with Lasso events
+- Test DGX Spark with actual hardware connection
 - Continue building remaining modules (Knowledge, Dashboard widgets)
+
+---
+
+### 2025-12-31 - Major Fixes & Google OAuth Refresh
+
+**Terminal Copy/Paste:**
+- Added clipboard support using Web Clipboard API
+- Ctrl+C/V (Cmd on Mac), right-click paste, auto-copy on selection
+- Smart Ctrl+C: copies if text selected, sends SIGINT otherwise
+
+**Calendar Fixes:**
+- Added explicit handling when both API and DB return no events
+- Wrapped debug console.logs behind `DEBUG_CALENDAR` env var
+- Removed Day view button (not implemented)
+- Fixed all-day event timezone handling with UTC-based `getDateOnly()`
+
+**Multi-Calendar Sync (NEW):**
+- Created `account_calendars` table (migration 010)
+- Syncs events from ALL calendars (not just primary)
+- New "Calendars" button to manage which calendars display
+- Events show calendar color indicators
+- Supports linked apps like Lasso scheduling
+
+**Contacts Display Fix:**
+- Was querying empty `contacts` table instead of `account_contacts`
+- Updated Contacts.jsx to query synced Google contacts directly
+- Now displays 338+ imported contacts
+
+**Google OAuth Refresh:**
+- Created new Google Cloud project: `ai-command-center-482917`
+- Enabled: Gmail API, Calendar API, People API
+- Fresh OAuth credentials in `.env`
+- Test users: husky2466@gmail.com, pmnicolasm@gmail.com
+
+**Database Corruption Fix:**
+- Resolved "database disk image is malformed" error
+- Reset database (backed up corrupted version)
+- Fresh database created on app launch
+
+**DGX Spark SSH Fix:**
+- Removed explicit `port: 22` from SSH connect (uses default)
+- Added `expandHomePath()` for ~ expansion on Windows
+- SSH key path now properly resolved
+
+**Commits:**
+- `c89ae3d4` - Terminal clipboard, calendar sync, contacts rewrite, db repair
+- `444862a4` - Gmail integration status and quick start guide
+- `7bc85fe6` - Calendar improvements (error handling, debug flags, timezone)
 
 ---
 
