@@ -27,6 +27,17 @@
  *   POST /api/dgx/jobs - Create job
  *   PUT /api/dgx/jobs/:id - Update job
  *   DELETE /api/dgx/jobs/:id - Delete job
+ *
+ * Operations (ComfyUI, Services, etc.):
+ *   GET /api/dgx/operations - List operations
+ *   GET /api/dgx/operations/:id - Get operation
+ *   POST /api/dgx/operations - Create operation
+ *   PUT /api/dgx/operations/:id - Update operation
+ *   POST /api/dgx/operations/:id/progress - Quick progress update
+ *   POST /api/dgx/operations/:id/kill - Kill/terminate running operation
+ *   GET /api/dgx/operations/:id/logs - Get operation logs
+ *   POST /api/dgx/operations/:id/restart - Restart operation
+ *   DELETE /api/dgx/operations/:id - Delete operation
  */
 
 const express = require('express');
@@ -739,6 +750,418 @@ router.delete('/jobs/:id', async (req, res) => {
       success: false,
       error: err.message
     });
+  }
+});
+
+// =========================================================================
+// OPERATIONS (ComfyUI, Services, etc.)
+// =========================================================================
+
+// List operations
+router.get('/operations', async (req, res) => {
+  try {
+    const db = getDatabase();
+    const { connection_id, type, status, limit = 100 } = req.query;
+
+    let sql = 'SELECT * FROM dgx_operations WHERE 1=1';
+    const params = [];
+
+    if (connection_id) {
+      sql += ' AND connection_id = ?';
+      params.push(connection_id);
+    }
+
+    if (type) {
+      sql += ' AND type = ?';
+      params.push(type);
+    }
+
+    if (status) {
+      sql += ' AND status = ?';
+      params.push(status);
+    }
+
+    sql += ' ORDER BY created_at DESC LIMIT ?';
+    params.push(parseInt(limit));
+
+    const operations = db.prepare(sql).all(...params);
+
+    res.json({
+      success: true,
+      data: operations
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      error: err.message
+    });
+  }
+});
+
+// Get specific operation
+router.get('/operations/:id', async (req, res) => {
+  try {
+    const db = getDatabase();
+    const { id } = req.params;
+
+    const operation = db.prepare('SELECT * FROM dgx_operations WHERE id = ?').get(id);
+
+    if (!operation) {
+      return res.status(404).json({
+        success: false,
+        error: 'Operation not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: operation
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      error: err.message
+    });
+  }
+});
+
+// Create operation
+router.post('/operations', async (req, res) => {
+  try {
+    const db = getDatabase();
+    const {
+      connection_id,
+      project_id,
+      name,
+      type,
+      category,
+      status = 'pending',
+      pid,
+      command,
+      progress = -1,
+      progress_current,
+      progress_total,
+      progress_message,
+      port,
+      url,
+      websocket_url,
+      metrics,
+      log_file
+    } = req.body;
+
+    if (!name || !type) {
+      return res.status(400).json({
+        success: false,
+        error: 'Name and type are required'
+      });
+    }
+
+    const id = uuidv4();
+    const now = new Date().toISOString();
+    const metricsStr = metrics ? JSON.stringify(metrics) : null;
+
+    db.prepare(`
+      INSERT INTO dgx_operations (
+        id, connection_id, project_id, name, type, category, status,
+        pid, command, progress, progress_current, progress_total,
+        progress_message, port, url, websocket_url, metrics, log_file, created_at
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      id, connection_id, project_id, name, type, category, status,
+      pid, command, progress, progress_current, progress_total,
+      progress_message, port, url, websocket_url, metricsStr, log_file, now
+    );
+
+    const operation = db.prepare('SELECT * FROM dgx_operations WHERE id = ?').get(id);
+
+    res.json({
+      success: true,
+      data: operation
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      error: err.message
+    });
+  }
+});
+
+// Update operation (auto-set started_at/completed_at based on status)
+router.put('/operations/:id', async (req, res) => {
+  try {
+    const db = getDatabase();
+    const { id } = req.params;
+    const updates = req.body;
+
+    const existing = db.prepare('SELECT * FROM dgx_operations WHERE id = ?').get(id);
+    if (!existing) {
+      return res.status(404).json({
+        success: false,
+        error: 'Operation not found'
+      });
+    }
+
+    const allowedFields = [
+      'name', 'type', 'category', 'status', 'pid', 'command',
+      'progress', 'progress_current', 'progress_total', 'progress_message',
+      'port', 'url', 'websocket_url', 'metrics', 'log_file'
+    ];
+    const fields = Object.keys(updates).filter(k => allowedFields.includes(k));
+
+    if (fields.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'No valid fields to update'
+      });
+    }
+
+    // Handle timestamp auto-setting based on status changes
+    let extraFields = '';
+    let extraValues = [];
+
+    if (updates.status === 'running' && existing.status !== 'running' && !existing.started_at) {
+      extraFields = ', started_at = ?';
+      extraValues.push(new Date().toISOString());
+    } else if ((updates.status === 'completed' || updates.status === 'failed') &&
+               !['completed', 'failed'].includes(existing.status) &&
+               !existing.completed_at) {
+      extraFields = ', completed_at = ?';
+      extraValues.push(new Date().toISOString());
+    }
+
+    // Handle JSON serialization for metrics
+    const values = fields.map(f => {
+      if (f === 'metrics' && typeof updates[f] === 'object') {
+        return JSON.stringify(updates[f]);
+      }
+      return updates[f];
+    });
+
+    const setClause = fields.map(f => `${f} = ?`).join(', ');
+    const allValues = [...values, ...extraValues, id];
+
+    db.prepare(`UPDATE dgx_operations SET ${setClause}${extraFields} WHERE id = ?`).run(...allValues);
+
+    const operation = db.prepare('SELECT * FROM dgx_operations WHERE id = ?').get(id);
+
+    res.json({
+      success: true,
+      data: operation
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      error: err.message
+    });
+  }
+});
+
+// Quick progress update (convenience endpoint)
+router.post('/operations/:id/progress', async (req, res) => {
+  try {
+    const db = getDatabase();
+    const { id } = req.params;
+    const { progress, progress_current, progress_total, progress_message } = req.body;
+
+    const existing = db.prepare('SELECT * FROM dgx_operations WHERE id = ?').get(id);
+    if (!existing) {
+      return res.status(404).json({
+        success: false,
+        error: 'Operation not found'
+      });
+    }
+
+    const updates = {};
+    if (progress !== undefined) updates.progress = progress;
+    if (progress_current !== undefined) updates.progress_current = progress_current;
+    if (progress_total !== undefined) updates.progress_total = progress_total;
+    if (progress_message !== undefined) updates.progress_message = progress_message;
+
+    const fields = Object.keys(updates);
+    if (fields.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'No progress fields provided'
+      });
+    }
+
+    const setClause = fields.map(f => `${f} = ?`).join(', ');
+    const values = [...fields.map(f => updates[f]), id];
+
+    db.prepare(`UPDATE dgx_operations SET ${setClause} WHERE id = ?`).run(...values);
+
+    const operation = db.prepare('SELECT * FROM dgx_operations WHERE id = ?').get(id);
+
+    res.json({
+      success: true,
+      data: operation
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      error: err.message
+    });
+  }
+});
+
+// Delete operation
+router.delete('/operations/:id', async (req, res) => {
+  try {
+    const db = getDatabase();
+    const { id } = req.params;
+
+    const result = db.prepare('DELETE FROM dgx_operations WHERE id = ?').run(id);
+
+    if (result.changes === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Operation not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: { deleted: id }
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      error: err.message
+    });
+  }
+});
+
+// Kill/terminate running operation
+router.post('/operations/:id/kill', async (req, res) => {
+  try {
+    const db = getDatabase();
+    const { signal = 'SIGTERM' } = req.body; // SIGTERM or SIGKILL
+
+    // Get operation
+    const operation = db.prepare('SELECT * FROM dgx_operations WHERE id = ?').get(req.params.id);
+    if (!operation) {
+      return res.status(404).json({ success: false, error: 'Operation not found' });
+    }
+
+    if (!operation.pid) {
+      return res.status(400).json({ success: false, error: 'Operation has no PID' });
+    }
+
+    if (operation.status !== 'running') {
+      return res.status(400).json({ success: false, error: 'Operation is not running' });
+    }
+
+    // Get connection for this operation
+    const connection = dgxManager.getActiveConnection();
+
+    if (!connection) {
+      return res.status(400).json({ success: false, error: 'No active DGX connection' });
+    }
+
+    // Execute kill command
+    const killCmd = signal === 'SIGKILL' ? `kill -9 ${operation.pid}` : `kill ${operation.pid}`;
+    const result = await dgxManager.executeCommand(connection.id, killCmd);
+
+    if (result.success) {
+      // Update operation status
+      db.prepare(`
+        UPDATE dgx_operations
+        SET status = 'cancelled', completed_at = ?, updated_at = ?
+        WHERE id = ?
+      `).run(new Date().toISOString(), new Date().toISOString(), req.params.id);
+
+      res.json({ success: true, data: { killed: true, pid: operation.pid, signal } });
+    } else {
+      res.status(500).json({ success: false, error: result.error || 'Failed to kill process' });
+    }
+  } catch (error) {
+    console.error('Kill operation error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Get operation logs
+router.get('/operations/:id/logs', async (req, res) => {
+  try {
+    const db = getDatabase();
+    const { tail = 100 } = req.query;
+
+    const operation = db.prepare('SELECT * FROM dgx_operations WHERE id = ?').get(req.params.id);
+    if (!operation) {
+      return res.status(404).json({ success: false, error: 'Operation not found' });
+    }
+
+    if (!operation.log_file) {
+      return res.status(400).json({ success: false, error: 'Operation has no log file' });
+    }
+
+    const connection = dgxManager.getActiveConnection();
+
+    if (!connection) {
+      return res.status(400).json({ success: false, error: 'No active DGX connection' });
+    }
+
+    // Tail the log file
+    const result = await dgxManager.executeCommand(connection.id, `tail -n ${tail} ${operation.log_file}`);
+
+    if (result.success) {
+      res.json({ success: true, data: { logs: result.data.stdout, file: operation.log_file } });
+    } else {
+      res.status(500).json({ success: false, error: result.error || 'Failed to read logs' });
+    }
+  } catch (error) {
+    console.error('Get logs error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Restart operation
+router.post('/operations/:id/restart', async (req, res) => {
+  try {
+    const db = getDatabase();
+
+    const operation = db.prepare('SELECT * FROM dgx_operations WHERE id = ?').get(req.params.id);
+    if (!operation) {
+      return res.status(404).json({ success: false, error: 'Operation not found' });
+    }
+
+    if (!operation.command) {
+      return res.status(400).json({ success: false, error: 'Operation has no command to restart' });
+    }
+
+    const connection = dgxManager.getActiveConnection();
+
+    if (!connection) {
+      return res.status(400).json({ success: false, error: 'No active DGX connection' });
+    }
+
+    // If running, kill first
+    if (operation.status === 'running' && operation.pid) {
+      await dgxManager.executeCommand(connection.id, `kill ${operation.pid}`);
+    }
+
+    // Re-run the command with nohup
+    const logFile = operation.log_file || `/tmp/${operation.id}.log`;
+    const cmd = `nohup ${operation.command} > ${logFile} 2>&1 & echo $!`;
+    const result = await dgxManager.executeCommand(connection.id, cmd);
+
+    if (result.success) {
+      const newPid = parseInt(result.data.stdout.trim());
+
+      db.prepare(`
+        UPDATE dgx_operations
+        SET status = 'running', pid = ?, started_at = ?, completed_at = NULL, updated_at = ?
+        WHERE id = ?
+      `).run(newPid, new Date().toISOString(), new Date().toISOString(), req.params.id);
+
+      res.json({ success: true, data: { restarted: true, pid: newPid } });
+    } else {
+      res.status(500).json({ success: false, error: result.error || 'Failed to restart' });
+    }
+  } catch (error) {
+    console.error('Restart operation error:', error);
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 

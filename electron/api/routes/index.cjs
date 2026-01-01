@@ -18,6 +18,7 @@ const dgxRoutes = require('./dgx.cjs');
 const calendarRoutes = require('./calendar.cjs');
 const emailsRoutes = require('./emails.cjs');
 const chainrunnerRoutes = require('./chainrunner.cjs');
+const filesRoutes = require('./files.cjs');
 
 const router = express.Router();
 
@@ -34,5 +35,6 @@ router.use('/dgx', dgxRoutes);              // /api/dgx/*
 router.use('/calendar', calendarRoutes);    // /api/calendar/*
 router.use('/emails', emailsRoutes);        // /api/emails/*
 router.use('/chainrunner', chainrunnerRoutes); // /api/chainrunner/*
+router.use('/files', filesRoutes);              // /api/files/*
 
 module.exports = router;

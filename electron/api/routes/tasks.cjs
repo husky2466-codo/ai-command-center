@@ -1,8 +1,10 @@
 /**
  * Tasks Routes
  * GET /api/tasks - List tasks
+ * GET /api/tasks/:id - Get single task
  * POST /api/tasks - Create task
  * PUT /api/tasks/:id - Update task
+ * DELETE /api/tasks/:id - Delete task
  */
 
 const express = require('express');
@@ -50,6 +52,20 @@ router.get('/', async (req, res) => {
       success: false,
       error: err.message
     });
+  }
+});
+
+// Get single task by ID
+router.get('/:id', (req, res) => {
+  try {
+    const db = getDatabase();
+    const task = db.prepare('SELECT * FROM tasks WHERE id = ?').get(req.params.id);
+    if (!task) {
+      return res.status(404).json({ success: false, error: 'Task not found' });
+    }
+    res.json({ success: true, data: task });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 
@@ -145,6 +161,20 @@ router.put('/:id', async (req, res) => {
       success: false,
       error: err.message
     });
+  }
+});
+
+// Delete task
+router.delete('/:id', (req, res) => {
+  try {
+    const db = getDatabase();
+    const result = db.prepare('DELETE FROM tasks WHERE id = ?').run(req.params.id);
+    if (result.changes === 0) {
+      return res.status(404).json({ success: false, error: 'Task not found' });
+    }
+    res.json({ success: true, data: { deleted: true } });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 
