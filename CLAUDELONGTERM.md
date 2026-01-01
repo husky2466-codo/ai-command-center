@@ -6,6 +6,29 @@ Architecture decisions, patterns, and feature plans that persist across sessions
 
 ## Recent Updates
 
+### 2025-12-31 - Multi-Calendar Sync & Major Fixes
+
+**Multi-Calendar Architecture:**
+- New `account_calendars` table (migration 010) stores calendar metadata
+- `syncAllCalendars()` method fetches from all selected calendars
+- Calendar colors displayed via CSS border indicators on events
+- "Calendars" modal for user to toggle which calendars sync
+- Supports third-party apps (Lasso, etc.) that create secondary calendars
+
+**Contacts Data Model Clarification:**
+- `contacts` table = Local CRM (manual relationship management)
+- `account_contacts` table = Google synced contacts
+- Contacts.jsx now queries `account_contacts` for Google data
+
+**Google OAuth Best Practice:**
+- Created dedicated Google Cloud project per app (`ai-command-center-482917`)
+- Separate from shared credentials used by other projects
+- Test users explicitly added for development
+
+**DGX Spark SSH Improvements:**
+- `expandHomePath()` helper for Windows ~ expansion
+- SSH port now uses node-ssh default (no explicit port:22)
+
 ### 2025-12-31 - Terminal Copy/Paste Implementation
 - Added full clipboard support to integrated terminal (xterm.js)
 - Features:
@@ -730,3 +753,147 @@ When buttons get cut off, use column layout:
   gap: 8px;
 }
 ```
+
+---
+
+## Multi-Calendar Sync Architecture (Implemented 2025-12-31)
+
+### Database Schema
+```sql
+CREATE TABLE account_calendars (
+  id TEXT PRIMARY KEY,
+  account_id TEXT NOT NULL,
+  calendar_id TEXT NOT NULL,        -- Google Calendar ID
+  name TEXT,
+  description TEXT,
+  background_color TEXT,
+  foreground_color TEXT,
+  is_primary INTEGER DEFAULT 0,
+  is_selected INTEGER DEFAULT 1,    -- User toggle for sync
+  access_role TEXT,
+  FOREIGN KEY (account_id) REFERENCES accounts(id)
+);
+```
+
+### Service Methods
+- `listCalendars(accountId)` - Fetch all calendars from Google API
+- `getCalendarsFromDB(accountId)` - Get stored calendars
+- `toggleCalendarSync(calendarId, isSelected)` - Enable/disable calendar
+- `syncAllCalendars(accountId)` - Sync events from all selected calendars
+- `_upsertCalendar(accountId, calendarData)` - Store calendar metadata
+
+### IPC Channels
+- `google:list-calendars` - Fetch from Google
+- `google:get-calendars` - Get from DB
+- `google:toggle-calendar-sync` - Toggle visibility
+
+### UI Pattern
+```jsx
+// CalendarView.jsx
+const [showCalendarManager, setShowCalendarManager] = useState(false);
+const [calendars, setCalendars] = useState([]);
+
+// Calendar color indicators on events
+<div style={{ borderLeft: `3px solid ${event.calendarColor}` }}>
+  {event.summary}
+</div>
+```
+
+### Key Learning
+Google Calendar API returns events only from the calendar ID specified in the request.
+To get ALL events, must iterate through `calendarList.list()` results and fetch events from each.
+
+---
+
+## DGX Spark Orchestration Pattern (Established 2026-01-01)
+
+### Architecture Decision
+Claude Code acts as the **primary orchestrator** for all DGX Spark work. Instead of SSH-ing directly, all commands flow through the ACC API, ensuring projects/jobs are automatically tracked.
+
+### Workflow
+```
+User Request → Claude Code → ACC API → DGX SSH → Execute → Update ACC DB → UI Reflects
+```
+
+### Workspace Convention
+All DGX projects live under `~/projects/` with standardized subfolders:
+```
+~/projects/
+├── training/     # ML training jobs (fine-tuning, experiments)
+├── inference/    # Model serving (ComfyUI, APIs, demos)
+├── data/         # Datasets, preprocessed data
+└── outputs/      # Results, checkpoints, exports
+```
+
+### API-Driven Tracking Pattern
+```bash
+# 1. Create project when starting new work
+POST /api/dgx/projects
+{
+  "connection_id": "...",
+  "name": "Project Name",
+  "remote_path": "/home/myers/projects/training/project-name",
+  "project_type": "computer_vision|nlp|generative|other",
+  "status": "active"
+}
+
+# 2. Execute commands through API (not direct SSH)
+POST /api/dgx/exec/:connectionId
+{"command": "cd ~/projects/training/project-name && python train.py"}
+
+# 3. Create job entries for discrete tasks
+POST /api/dgx/jobs
+{
+  "project_id": "...",
+  "name": "Training Run 1",
+  "status": "running",
+  "config": {"epochs": 100, "batch_size": 32}
+}
+
+# 4. Update job status as work progresses
+PUT /api/dgx/jobs/:jobId
+{"status": "completed", "metrics": {"accuracy": 0.95}}
+```
+
+### Status Flow
+- **started** → Initial project/job creation
+- **growing** → Active work in progress (training, processing)
+- **completed** → Work finished successfully
+
+### Connection Details (Persistent)
+- **Host**: 192.168.3.20
+- **Network**: Site-to-site VPN via UCG-Ultimate (always connected)
+- **User**: myers
+- **SSH Key**: `C:/Users/myers/.ssh/dgx_spark_ross`
+- **GPU**: NVIDIA GB10 (Blackwell), 122GB VRAM
+
+### Process Persistence
+Long-running processes (servers, training) must use `nohup`:
+```bash
+cd ~/projects/inference/ComfyUI && \
+nohup ./venv/bin/python main.py --listen 0.0.0.0 --port 8188 > /tmp/comfyui.log 2>&1 &
+```
+
+### Key Learning
+SSH commands executed via API are ephemeral - background processes (`&`) die when command completes. Always use `nohup` for processes that should survive.
+
+---
+
+## DGX Environment (As of 2026-01-01)
+
+### Hardware
+- **GPU**: NVIDIA GB10 (Blackwell architecture, CUDA 12.1)
+- **VRAM**: 122 GB
+- **RAM**: 128 GB
+
+### Software
+- **OS**: Ubuntu 24.04.3 LTS (Noble Numbat)
+- **Python**: 3.12.3
+- **PyTorch**: 2.11.0.dev (CUDA 12.8)
+- **No Conda** - Uses venv for environments
+
+### Installed Applications
+- **ComfyUI 0.5.1** at `~/projects/inference/ComfyUI/`
+  - Flux models installed
+  - Frontend 1.34.9
+  - Runs on port 8188

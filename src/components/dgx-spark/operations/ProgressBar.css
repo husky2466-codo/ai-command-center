@@ -1,0 +1,131 @@
+/* ProgressBar Component Styles */
+
+.progress-bar-container {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* Label */
+.progress-bar-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+/* Track */
+.progress-bar-track {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  overflow: hidden;
+  position: relative;
+}
+
+/* Fill */
+.progress-bar-fill {
+  height: 100%;
+  border-radius: 8px;
+  transition: width 0.3s ease, background-color 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Animated pulse effect */
+.progress-bar-fill.animated::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.2),
+    transparent
+  );
+  animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* Indeterminate animation */
+.progress-bar-fill.indeterminate {
+  animation: indeterminate 1.5s ease-in-out infinite;
+}
+
+@keyframes indeterminate {
+  0% {
+    left: -30%;
+  }
+  50% {
+    left: 100%;
+  }
+  100% {
+    left: -30%;
+  }
+}
+
+/* Size variants */
+.progress-bar-sm .progress-bar-track {
+  height: 4px;
+}
+
+.progress-bar-sm .progress-bar-label {
+  font-size: 11px;
+}
+
+.progress-bar-md .progress-bar-track {
+  height: 6px;
+}
+
+.progress-bar-md .progress-bar-label {
+  font-size: 13px;
+}
+
+.progress-bar-lg .progress-bar-track {
+  height: 10px;
+}
+
+.progress-bar-lg .progress-bar-label {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* Type variants */
+.progress-bar-default .progress-bar-fill {
+  background: var(--module-dgx, #00ff88);
+  box-shadow: 0 0 10px var(--module-dgx, #00ff88);
+}
+
+.progress-bar-success .progress-bar-fill {
+  background: #00ff88;
+  box-shadow: 0 0 10px #00ff88;
+}
+
+.progress-bar-warning .progress-bar-fill {
+  background: #ffd700;
+  box-shadow: 0 0 10px #ffd700;
+}
+
+.progress-bar-error .progress-bar-fill {
+  background: #ff4444;
+  box-shadow: 0 0 10px #ff4444;
+}
+
+/* Hover effects */
+.progress-bar-container:hover .progress-bar-label {
+  color: var(--text-primary);
+}

@@ -698,3 +698,113 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Calendar Manager */
+.calendar-manager {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.calendar-manager-description {
+  color: var(--text-muted);
+  font-size: 14px;
+  margin: 0;
+}
+
+.calendar-manager-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 40px;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.calendar-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.calendar-list-item {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  transition: background-color 0.2s;
+}
+
+.calendar-list-item:hover {
+  background-color: var(--surface-hover);
+}
+
+.calendar-list-label {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  cursor: pointer;
+}
+
+.calendar-list-label input[type="checkbox"] {
+  margin-top: 4px;
+  cursor: pointer;
+}
+
+.calendar-color-indicator {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  margin-top: 2px;
+  border: 2px solid var(--background);
+  box-shadow: 0 0 0 1px var(--border);
+}
+
+.calendar-list-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.calendar-list-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.calendar-list-badge {
+  padding: 2px 8px;
+  background-color: var(--accent-primary);
+  color: white;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.calendar-list-description {
+  margin-top: 4px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.calendar-manager-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+/* Event chip border for calendar color */
+.calendar-event-chip {
+  border-left: 3px solid #4285f4;
+}
+
+.calendar-week-event {
+  border-left: 4px solid #4285f4;
+}

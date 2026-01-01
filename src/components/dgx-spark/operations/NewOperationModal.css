@@ -1,0 +1,167 @@
+/* New Operation Modal Styles */
+
+.new-operation-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* Form Error */
+.form-error {
+  padding: 12px 16px;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 8px;
+  color: var(--status-error);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* Form Group */
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.form-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.form-label .required {
+  color: var(--status-error);
+  margin-left: 4px;
+}
+
+/* Type Selector */
+.type-selector {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.type-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 16px;
+  background: var(--background-secondary);
+  border: 2px solid var(--border-color);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.type-option:hover {
+  background: var(--background-tertiary);
+  border-color: var(--accent-primary);
+  color: var(--text-primary);
+}
+
+.type-option.active {
+  background: rgba(var(--accent-primary-rgb, 255, 215, 0), 0.1);
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
+}
+
+.type-option svg {
+  color: currentColor;
+}
+
+/* Type-Specific Fields */
+.type-specific-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-color);
+}
+
+.form-hint {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: var(--background-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.form-hint svg {
+  flex-shrink: 0;
+  color: var(--accent-primary);
+}
+
+/* Modal Footer Buttons */
+.modal-footer-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  width: 100%;
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+  .type-selector {
+    grid-template-columns: 1fr;
+  }
+
+  .type-option {
+    flex-direction: row;
+    justify-content: flex-start;
+    padding: 12px 16px;
+  }
+
+  .modal-footer-buttons {
+    flex-direction: column-reverse;
+  }
+
+  .modal-footer-buttons .btn {
+    width: 100%;
+  }
+}
+
+/* Loading State */
+.new-operation-form.loading {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+/* Field Groups */
+.field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+@media (max-width: 600px) {
+  .field-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Icon in Input (clickable) */
+.input-icon-right svg {
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.input-icon-right svg:hover {
+  color: var(--accent-primary);
+}
+
+/* Submit Button Icon */
+.btn-icon svg {
+  color: currentColor;
+}

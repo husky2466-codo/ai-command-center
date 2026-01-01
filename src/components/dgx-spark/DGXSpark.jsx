@@ -19,6 +19,7 @@ import {
 import './DGXSpark.css';
 import { dgxService } from '@/services/DGXService.js';
 import MetricsPanel from './components/MetricsPanel.jsx';
+import OperationsTab from './operations/OperationsTab.jsx';
 
 export default function DGXSpark({ apiKeys }) {
   const [activeTab, setActiveTab] = useState('connection');
@@ -40,7 +41,8 @@ export default function DGXSpark({ apiKeys }) {
       if (active) {
         // Check if still connected
         const status = await window.electronAPI.dgxCheckStatus(active.id);
-        if (status.connected) {
+        // IPC returns { success: true, data: { connected: true } }
+        if (status?.data?.connected) {
           setActiveConnection(active);
           setIsConnected(true);
           setConnectionStatus('connected');
@@ -74,7 +76,7 @@ export default function DGXSpark({ apiKeys }) {
     { id: 'connection', name: 'Connection', icon: Plug },
     { id: 'metrics', name: 'Metrics', icon: Gauge },
     { id: 'projects', name: 'Projects', icon: FolderKanban },
-    { id: 'jobs', name: 'Jobs', icon: Play }
+    { id: 'operations', name: 'Running Operations', icon: Activity }
   ];
 
   return (
@@ -124,6 +126,7 @@ export default function DGXSpark({ apiKeys }) {
             connectionStatus={connectionStatus}
             onConnect={async (config) => {
               setConnectionStatus('connecting');
+              console.log('[DGX UI] Connecting to:', config.hostname, 'user:', config.username);
               try {
                 const result = await window.electronAPI.dgxConnect({
                   id: config.id,
@@ -132,6 +135,7 @@ export default function DGXSpark({ apiKeys }) {
                   sshKeyPath: config.ssh_key_path,
                   port: config.port || 22
                 });
+                console.log('[DGX UI] Connect result:', result);
 
                 if (result.success) {
                   await dgxService.setActiveConnection(config.id);
@@ -139,13 +143,19 @@ export default function DGXSpark({ apiKeys }) {
                   setIsConnected(true);
                   setConnectionStatus('connected');
                   // Start Ollama tunnel
-                  await window.electronAPI.dgxStartTunnel(config.id, 11435, 11434);
+                  try {
+                    await window.electronAPI.dgxStartTunnel(config.id, 11435, 11434);
+                    console.log('[DGX UI] Ollama tunnel started on port 11435');
+                  } catch (tunnelErr) {
+                    console.warn('[DGX UI] Ollama tunnel failed (non-critical):', tunnelErr);
+                  }
                 } else {
+                  console.error('[DGX UI] Connect failed:', result.error);
                   setConnectionStatus('error');
                   setTimeout(() => setConnectionStatus('disconnected'), 3000);
                 }
               } catch (err) {
-                console.error('Connection failed:', err);
+                console.error('[DGX UI] Connection exception:', err);
                 setConnectionStatus('error');
                 setTimeout(() => setConnectionStatus('disconnected'), 3000);
               }
@@ -177,8 +187,13 @@ export default function DGXSpark({ apiKeys }) {
             isConnected={isConnected}
           />
         )}
-        {activeTab === 'projects' && <ProjectsTab isConnected={isConnected} />}
-        {activeTab === 'jobs' && <JobsTab isConnected={isConnected} />}
+        {activeTab === 'operations' && (
+          <OperationsTab
+            isConnected={connectionStatus === 'connected'}
+            connectionId={activeConnection?.id}
+          />
+        )}
+        {activeTab === 'projects' && <ProjectsTab isConnected={isConnected} connectionId={activeConnection?.id} />}
       </div>
     </div>
   );
@@ -455,7 +470,41 @@ function ConnectionTab({
 }
 
 // Projects Tab Component
-function ProjectsTab({ isConnected }) {
+function ProjectsTab({ isConnected, connectionId }) {
+  const [projects, setProjects] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (isConnected && connectionId) {
+      loadProjects();
+    } else {
+      setProjects([]);
+    }
+  }, [isConnected, connectionId]);
+
+  const loadProjects = async () => {
+    setLoading(true);
+    try {
+      const data = await dgxService.getProjects(connectionId);
+      setProjects(data);
+    } catch (err) {
+      console.error('Failed to load projects:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteProject = async (id, name) => {
+    if (confirm(`Delete project "${name}" and all its jobs?`)) {
+      try {
+        await dgxService.deleteProject(id);
+        setProjects(projects.filter(p => p.id !== id));
+      } catch (err) {
+        console.error('Failed to delete project:', err);
+      }
+    }
+  };
+
   return (
     <div className="tab-pane projects-pane">
       {!isConnected ? (
@@ -472,80 +521,48 @@ function ProjectsTab({ isConnected }) {
               New Project
             </button>
           </div>
-          <div className="projects-list">
-            <div className="project-item">
-              <div className="project-info">
-                <h3>Example Project 1</h3>
-                <p className="project-path">/workspace/project1</p>
-              </div>
-              <div className="project-actions">
-                <button className="btn btn-ghost">Open</button>
-              </div>
+          {loading ? (
+            <div className="loading-state">Loading projects...</div>
+          ) : projects.length === 0 ? (
+            <div className="empty-state">
+              <FolderKanban size={48} strokeWidth={1.5} />
+              <p>No projects yet. Create one to get started.</p>
             </div>
-            <div className="project-item">
-              <div className="project-info">
-                <h3>Example Project 2</h3>
-                <p className="project-path">/workspace/project2</p>
-              </div>
-              <div className="project-actions">
-                <button className="btn btn-ghost">Open</button>
-              </div>
+          ) : (
+            <div className="projects-list">
+              {projects.map(project => (
+                <div key={project.id} className="project-item">
+                  <div className="project-info">
+                    <h3>{project.name}</h3>
+                    <p className="project-path">{project.remote_path || 'No path set'}</p>
+                    {project.description && (
+                      <p className="project-description">{project.description}</p>
+                    )}
+                    <div className="project-meta">
+                      {project.project_type && (
+                        <span className="project-type">{project.project_type}</span>
+                      )}
+                      <span className={`project-status status-${project.status}`}>
+                        {project.status}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="project-actions">
+                    <button
+                      className="btn btn-ghost btn-danger"
+                      onClick={() => handleDeleteProject(project.id, project.name)}
+                      title="Delete project"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                </div>
+              ))}
             </div>
-          </div>
+          )}
         </div>
       )}
     </div>
   );
 }
 
-// Jobs Tab Component
-function JobsTab({ isConnected }) {
-  return (
-    <div className="tab-pane jobs-pane">
-      {!isConnected ? (
-        <div className="empty-state">
-          <Play size={48} strokeWidth={1.5} />
-          <p>Connect to DGX Spark to manage jobs</p>
-        </div>
-      ) : (
-        <div className="jobs-container">
-          <div className="jobs-header">
-            <h2>Training Jobs</h2>
-            <button className="btn btn-primary">
-              <Play size={18} />
-              New Job
-            </button>
-          </div>
-          <div className="jobs-list">
-            <div className="job-item">
-              <div className="job-status running">
-                <Activity size={16} />
-              </div>
-              <div className="job-info">
-                <h3>model_training_v1</h3>
-                <p>Running • Started 2h ago • GPU 0-3</p>
-              </div>
-              <div className="job-actions">
-                <button className="btn btn-ghost" title="Stop job">
-                  <Square size={16} />
-                </button>
-              </div>
-            </div>
-            <div className="job-item">
-              <div className="job-status completed">
-                <Activity size={16} />
-              </div>
-              <div className="job-info">
-                <h3>data_preprocessing</h3>
-                <p>Completed • 4h ago • GPU 4-5</p>
-              </div>
-              <div className="job-actions">
-                <button className="btn btn-ghost">View Logs</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}

@@ -31,10 +31,12 @@ function CalendarView({ apiKeys }) {
   const [viewMode, setViewMode] = useState('month'); // 'month' | 'week' | 'day'
   const [events, setEvents] = useState([]);
   const [accounts, setAccounts] = useState([]);
+  const [calendars, setCalendars] = useState([]);
   const [selectedAccountId, setSelectedAccountId] = useState(null);
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [showEventDetail, setShowEventDetail] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showCalendarManager, setShowCalendarManager] = useState(false);
   const [loading, setLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState(null);
@@ -54,6 +56,13 @@ function CalendarView({ apiKeys }) {
   useEffect(() => {
     loadAccounts();
   }, []);
+
+  // Load calendars when account changes
+  useEffect(() => {
+    if (selectedAccountId) {
+      loadCalendars();
+    }
+  }, [selectedAccountId]);
 
   // Load events when account or date changes
   useEffect(() => {
@@ -80,6 +89,46 @@ function CalendarView({ apiKeys }) {
       console.error('Failed to load accounts:', err);
       setError('Failed to load Google accounts: ' + err.message);
     }
+  };
+
+  const loadCalendars = async () => {
+    if (!selectedAccountId) return;
+
+    try {
+      // Try to get calendars from DB first
+      const result = await window.electronAPI.googleGetCalendars(selectedAccountId);
+      let calendarsList = result?.success ? (result.data || []) : [];
+
+      // If no calendars in DB, fetch from Google
+      if (calendarsList.length === 0) {
+        const fetchResult = await window.electronAPI.googleListCalendars(selectedAccountId);
+        calendarsList = fetchResult?.success ? (fetchResult.data || []) : [];
+      }
+
+      setCalendars(calendarsList);
+    } catch (err) {
+      console.error('Failed to load calendars:', err);
+    }
+  };
+
+  const toggleCalendarVisibility = async (calendarId, isSelected) => {
+    try {
+      await window.electronAPI.googleToggleCalendarSync(selectedAccountId, calendarId, isSelected);
+
+      // Update local state
+      setCalendars(calendars.map(cal =>
+        cal.calendar_id === calendarId ? { ...cal, is_selected: isSelected ? 1 : 0 } : cal
+      ));
+
+      // Reload events
+      loadEvents();
+    } catch (err) {
+      console.error('Failed to toggle calendar:', err);
+    }
+  };
+
+  const getCalendarForEvent = (event) => {
+    return calendars.find(cal => cal.calendar_id === event.calendar_id);
   };
 
   const loadEvents = async () => {
@@ -347,17 +396,28 @@ function CalendarView({ apiKeys }) {
               >
                 <div className="calendar-day-number">{dayObj.date.getDate()}</div>
                 <div className="calendar-day-events">
-                  {dayEvents.slice(0, 3).map(event => (
-                    <div
-                      key={event.id}
-                      className="calendar-event-chip"
-                      onClick={() => handleEventClick(event)}
-                      title={event.summary}
-                    >
-                      <div className="calendar-event-dot" />
-                      <span className="calendar-event-title">{event.summary}</span>
-                    </div>
-                  ))}
+                  {dayEvents.slice(0, 3).map(event => {
+                    const eventCalendar = getCalendarForEvent(event);
+                    return (
+                      <div
+                        key={event.id}
+                        className="calendar-event-chip"
+                        onClick={() => handleEventClick(event)}
+                        title={`${event.summary}${eventCalendar ? ` (${eventCalendar.summary})` : ''}`}
+                        style={{
+                          borderLeftColor: eventCalendar?.background_color || '#4285f4'
+                        }}
+                      >
+                        <div
+                          className="calendar-event-dot"
+                          style={{
+                            backgroundColor: eventCalendar?.background_color || '#4285f4'
+                          }}
+                        />
+                        <span className="calendar-event-title">{event.summary}</span>
+                      </div>
+                    );
+                  })}
                   {dayEvents.length > 3 && (
                     <div className="calendar-event-more">+{dayEvents.length - 3} more</div>
                   )}
@@ -431,13 +491,15 @@ function CalendarView({ apiKeys }) {
                     const startHour = eventStart.getHours() + eventStart.getMinutes() / 60;
                     const duration = (eventEnd - eventStart) / (1000 * 60 * 60); // hours
 
+                    const eventCalendar = getCalendarForEvent(event);
                     return (
                       <div
                         key={event.id}
                         className="calendar-week-event"
                         style={{
                           top: `${startHour * 60}px`,
-                          height: `${duration * 60}px`
+                          height: `${duration * 60}px`,
+                          borderLeftColor: eventCalendar?.background_color || '#4285f4'
                         }}
                         onClick={() => handleEventClick(event)}
                       >
@@ -462,6 +524,7 @@ function CalendarView({ apiKeys }) {
 
     const eventStart = new Date(selectedEvent.start?.dateTime || selectedEvent.start?.date);
     const eventEnd = new Date(selectedEvent.end?.dateTime || selectedEvent.end?.date);
+    const eventCalendar = getCalendarForEvent(selectedEvent);
 
     return (
       <div className="calendar-event-detail-panel">
@@ -477,6 +540,29 @@ function CalendarView({ apiKeys }) {
         </div>
 
         <div className="calendar-event-detail-content">
+          {eventCalendar && (
+            <div className="calendar-event-detail-item">
+              <CalendarIcon size={16} />
+              <div>
+                <div className="calendar-event-detail-label">Calendar</div>
+                <div
+                  className="calendar-event-detail-value"
+                  style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+                >
+                  <div
+                    style={{
+                      width: '12px',
+                      height: '12px',
+                      borderRadius: '50%',
+                      backgroundColor: eventCalendar.background_color || '#4285f4'
+                    }}
+                  />
+                  {eventCalendar.summary}
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="calendar-event-detail-item">
             <Clock size={16} />
             <div>
@@ -627,6 +713,15 @@ function CalendarView({ apiKeys }) {
             <Button
               variant="secondary"
               size="sm"
+              icon={<CalendarIcon size={16} />}
+              onClick={() => setShowCalendarManager(true)}
+              disabled={!selectedAccountId}
+            >
+              Calendars
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
               icon={syncing ? <RefreshCw size={16} className="spinning" /> : <RefreshCw size={16} />}
               onClick={handleSyncCalendar}
               disabled={syncing || !selectedAccountId}
@@ -746,6 +841,80 @@ function CalendarView({ apiKeys }) {
             onChange={(e) => setFormData({ ...formData, attendees: e.target.value })}
             helperText="Comma-separated email addresses"
           />
+        </div>
+      </Modal>
+
+      {/* Calendar Manager Modal */}
+      <Modal
+        isOpen={showCalendarManager}
+        onClose={() => setShowCalendarManager(false)}
+        title="Manage Calendars"
+        size="medium"
+      >
+        <div className="calendar-manager">
+          <p className="calendar-manager-description">
+            Select which calendars to sync and display. Events from apps like Lasso will appear in their own calendars.
+          </p>
+
+          {calendars.length === 0 ? (
+            <div className="calendar-manager-empty">
+              <p>No calendars found. Click the button below to fetch your calendars.</p>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={loadCalendars}
+              >
+                Fetch Calendars
+              </Button>
+            </div>
+          ) : (
+            <div className="calendar-list">
+              {calendars.map(calendar => (
+                <div key={calendar.id} className="calendar-list-item">
+                  <label className="calendar-list-label">
+                    <input
+                      type="checkbox"
+                      checked={calendar.is_selected === 1}
+                      onChange={(e) => toggleCalendarVisibility(calendar.calendar_id, e.target.checked)}
+                    />
+                    <div
+                      className="calendar-color-indicator"
+                      style={{ backgroundColor: calendar.background_color || '#4285f4' }}
+                    />
+                    <div className="calendar-list-info">
+                      <div className="calendar-list-name">
+                        {calendar.summary}
+                        {calendar.is_primary === 1 && (
+                          <span className="calendar-list-badge">Primary</span>
+                        )}
+                      </div>
+                      {calendar.description && (
+                        <div className="calendar-list-description">{calendar.description}</div>
+                      )}
+                    </div>
+                  </label>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="calendar-manager-actions">
+            <Button
+              variant="secondary"
+              size="sm"
+              icon={<RefreshCw size={16} />}
+              onClick={loadCalendars}
+            >
+              Refresh List
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => setShowCalendarManager(false)}
+            >
+              Done
+            </Button>
+          </div>
         </div>
       </Modal>
     </div>

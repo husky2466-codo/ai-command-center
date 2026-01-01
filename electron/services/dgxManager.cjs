@@ -5,7 +5,26 @@
 
 const { NodeSSH } = require('node-ssh');
 const fs = require('fs');
+const path = require('path');
+const os = require('os');
+const EventEmitter = require('events');
 const { getDatabase } = require('../database/db.cjs');
+
+// Event emitter for command execution notifications
+const dgxEvents = new EventEmitter();
+
+/**
+ * Expand ~ to home directory (works on Windows and Unix)
+ * @param {string} filePath - Path that may contain ~
+ * @returns {string} Expanded path
+ */
+function expandHomePath(filePath) {
+  if (!filePath) return filePath;
+  if (filePath.startsWith('~')) {
+    return path.join(os.homedir(), filePath.slice(1));
+  }
+  return filePath;
+}
 
 // Active SSH connections
 const dgxConnections = new Map();
@@ -29,9 +48,12 @@ async function connectToDGX(config) {
       return { success: false, error: 'Missing required connection parameters' };
     }
 
+    // Expand ~ in SSH key path (Windows compatibility)
+    const expandedKeyPath = expandHomePath(sshKeyPath);
+
     // Verify SSH key exists
-    if (!fs.existsSync(sshKeyPath)) {
-      return { success: false, error: `SSH key not found: ${sshKeyPath}` };
+    if (!fs.existsSync(expandedKeyPath)) {
+      return { success: false, error: `SSH key not found: ${expandedKeyPath} (original: ${sshKeyPath})` };
     }
 
     // Check if connection already exists
@@ -53,8 +75,7 @@ async function connectToDGX(config) {
       ssh.connect({
         host: hostname,
         username: username,
-        privateKeyPath: sshKeyPath,
-        port: port,
+        privateKeyPath: expandedKeyPath,
         readyTimeout: 30000,
       }),
       new Promise((_, reject) =>
@@ -78,7 +99,8 @@ async function connectToDGX(config) {
     return { success: true, data: { connectionId: id } };
   } catch (error) {
     console.error('[DGX Manager] Connect error:', error.message);
-    return { success: false, error: 'Failed to connect to DGX server' };
+    console.error('[DGX Manager] Connect error stack:', error.stack);
+    return { success: false, error: `Failed to connect: ${error.message}` };
   }
 }
 
@@ -163,10 +185,39 @@ async function executeCommand(connectionId, command) {
       return { success: false, error: 'Not connected' };
     }
 
+    const startTime = Date.now();
+
     const result = await ssh.execCommand(command, {
       cwd: '/home',
       execOptions: { pty: true }
     });
+
+    const endTime = Date.now();
+    const duration = endTime - startTime;
+
+    // Emit command executed event (will be sent to renderer via main.cjs)
+    const commandEvent = {
+      connectionId,
+      command: command.substring(0, 100), // Truncate for safety
+      startedAt: new Date(startTime).toISOString(),
+      endedAt: new Date(endTime).toISOString(),
+      duration,
+      exitCode: result.code,
+      success: result.code === 0
+    };
+
+    // Store last command for reference
+    if (!module.exports.commandHistory) {
+      module.exports.commandHistory = [];
+    }
+    module.exports.commandHistory.push(commandEvent);
+    // Keep only last 50 commands
+    if (module.exports.commandHistory.length > 50) {
+      module.exports.commandHistory.shift();
+    }
+
+    // Emit event for listeners (main.cjs will forward to renderer)
+    dgxEvents.emit('command-executed', commandEvent);
 
     if (result.code !== 0) {
       return {
@@ -175,7 +226,8 @@ async function executeCommand(connectionId, command) {
         data: {
           stdout: result.stdout,
           stderr: result.stderr,
-          code: result.code
+          code: result.code,
+          duration
         }
       };
     }
@@ -185,7 +237,8 @@ async function executeCommand(connectionId, command) {
       data: {
         stdout: result.stdout,
         stderr: result.stderr,
-        code: result.code
+        code: result.code,
+        duration
       }
     };
   } catch (error) {
@@ -207,10 +260,11 @@ async function getGPUMetrics(connectionId) {
     }
 
     // Run all commands in parallel for efficiency
-    const [gpuResult, memResult, netResult] = await Promise.all([
+    const [gpuResult, memResult, netResult, diskResult] = await Promise.all([
       ssh.execCommand('nvidia-smi --query-gpu=index,name,utilization.gpu,temperature.gpu,power.draw --format=csv,noheader,nounits'),
       ssh.execCommand('free -m | grep Mem'),
-      ssh.execCommand('cat /proc/net/dev | grep -E "enP7s7|eth0" | head -1')
+      ssh.execCommand('cat /proc/net/dev | grep -E "enP7s7|eth0" | head -1'),
+      ssh.execCommand('df -BG /home 2>/dev/null | tail -1')
     ]);
 
     // Parse GPU metrics (handle GB10 which doesn't report memory)
@@ -258,6 +312,22 @@ async function getGPUMetrics(connectionId) {
       }
     }
 
+    // Parse disk/storage stats
+    let storage = { total: 0, used: 0, available: 0, usedPercent: 0, mountPoint: '/home' };
+    if (diskResult.code === 0 && diskResult.stdout.trim()) {
+      // Format: Filesystem Size Used Avail Use% Mounted
+      const parts = diskResult.stdout.trim().split(/\s+/);
+      if (parts.length >= 5) {
+        storage = {
+          total: parseInt(parts[1]) || 0,      // Size in GB
+          used: parseInt(parts[2]) || 0,       // Used in GB
+          available: parseInt(parts[3]) || 0,  // Available in GB
+          usedPercent: parseInt(parts[4]) || 0, // Use%
+          mountPoint: parts[5] || '/home'
+        };
+      }
+    }
+
     // Combine into GPU array format (for backwards compatibility)
     const enrichedGpus = gpus.map(gpu => ({
       ...gpu,
@@ -285,6 +355,7 @@ async function getGPUMetrics(connectionId) {
         gpus: enrichedGpus,
         memory,
         network,
+        storage,
         timestamp: now
       }
     };
@@ -380,5 +451,7 @@ module.exports = {
   disconnectAll,
   resetConnectionStates,
   // Export Map for direct access if needed
-  dgxConnections
+  dgxConnections,
+  commandHistory: [],
+  dgxEvents
 };

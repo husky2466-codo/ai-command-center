@@ -81,8 +81,13 @@ async function startApiServer(port = DEFAULT_PORT) {
   app.use(requestLogger); // Winston-based request logging
   app.use(authenticateApiKey);
 
+  // Mount all modular routes from the routes aggregator
+  // This includes: files, terminal, reminders, contacts, knowledge, calendar, dgx, chainrunner, etc.
+  const routesAggregator = require('../api/routes/index.cjs');
+  app.use('/api', routesAggregator);
+
   // =========================================================================
-  // SYSTEM ENDPOINTS
+  // SYSTEM ENDPOINTS (Legacy inline routes - kept for backwards compatibility)
   // =========================================================================
 
   app.get('/api/health', (req, res) => {
@@ -2161,6 +2166,410 @@ async function startApiServer(port = DEFAULT_PORT) {
         data: { deleted: id }
       });
     } catch (err) {
+      res.status(500).json({
+        success: false,
+        error: err.message
+      });
+    }
+  });
+
+  // =========================================================================
+  // CHAIN RUNNER ENDPOINTS
+  // =========================================================================
+  // NOTE: Chain Runner routes are now in electron/api/routes/chainrunner.cjs
+  // This section is deprecated and kept for reference only.
+
+  // Initialize Chain Runner service
+  const ChainRunnerService = require('./chainRunnerService.cjs');
+  let chainRunnerService = null;
+
+  // Lazy initialization
+  async function getChainRunnerService() {
+    if (!chainRunnerService) {
+      const { app } = require('electron');
+      const userDataPath = app.getPath('userData');
+      chainRunnerService = new ChainRunnerService(userDataPath);
+      await chainRunnerService.initialize();
+    }
+    return chainRunnerService;
+  }
+
+  // List saved chain configurations
+  app.get('/api/chainrunner/configs', async (req, res) => {
+    try {
+      const service = await getChainRunnerService();
+      const result = await service.listConfigs();
+
+      res.json(result);
+    } catch (err) {
+      logger.error('GET /api/chainrunner/configs error', { error: err.message });
+      res.status(500).json({
+        success: false,
+        error: err.message
+      });
+    }
+  });
+
+  // Get specific chain configuration
+  app.get('/api/chainrunner/configs/:name', async (req, res) => {
+    try {
+      const { name } = req.params;
+      const service = await getChainRunnerService();
+      const result = await service.getConfig(name);
+
+      if (!result.success) {
+        return res.status(404).json(result);
+      }
+
+      res.json(result);
+    } catch (err) {
+      logger.error('GET /api/chainrunner/configs/:name error', { error: err.message });
+      res.status(500).json({
+        success: false,
+        error: err.message
+      });
+    }
+  });
+
+  // Save a chain configuration
+  app.post('/api/chainrunner/configs', async (req, res) => {
+    try {
+      const { config, name } = req.body;
+
+      if (!config) {
+        return res.status(400).json({
+          success: false,
+          error: 'config is required'
+        });
+      }
+
+      if (!name) {
+        return res.status(400).json({
+          success: false,
+          error: 'name is required'
+        });
+      }
+
+      const service = await getChainRunnerService();
+      const result = await service.saveConfig(config, name);
+
+      res.json(result);
+    } catch (err) {
+      logger.error('POST /api/chainrunner/configs error', { error: err.message });
+      res.status(500).json({
+        success: false,
+        error: err.message
+      });
+    }
+  });
+
+  // Delete a chain configuration
+  app.delete('/api/chainrunner/configs/:name', async (req, res) => {
+    try {
+      const { name } = req.params;
+      const service = await getChainRunnerService();
+      const result = await service.deleteConfig(name);
+
+      if (!result.success) {
+        return res.status(404).json(result);
+      }
+
+      res.json(result);
+    } catch (err) {
+      logger.error('DELETE /api/chainrunner/configs/:name error', { error: err.message });
+      res.status(500).json({
+        success: false,
+        error: err.message
+      });
+    }
+  });
+
+  // List saved prompt lists
+  app.get('/api/chainrunner/prompts', async (req, res) => {
+    try {
+      const service = await getChainRunnerService();
+      const result = await service.listPromptLists();
+
+      res.json(result);
+    } catch (err) {
+      logger.error('GET /api/chainrunner/prompts error', { error: err.message });
+      res.status(500).json({
+        success: false,
+        error: err.message
+      });
+    }
+  });
+
+  // Get specific prompt list
+  app.get('/api/chainrunner/prompts/:name', async (req, res) => {
+    try {
+      const { name } = req.params;
+      const service = await getChainRunnerService();
+      const result = await service.getPromptList(name);
+
+      if (!result.success) {
+        return res.status(404).json(result);
+      }
+
+      res.json(result);
+    } catch (err) {
+      logger.error('GET /api/chainrunner/prompts/:name error', { error: err.message });
+      res.status(500).json({
+        success: false,
+        error: err.message
+      });
+    }
+  });
+
+  // Save a prompt list
+  app.post('/api/chainrunner/prompts', async (req, res) => {
+    try {
+      const { prompts, topic } = req.body;
+
+      if (!prompts || !Array.isArray(prompts)) {
+        return res.status(400).json({
+          success: false,
+          error: 'prompts array is required'
+        });
+      }
+
+      if (!topic) {
+        return res.status(400).json({
+          success: false,
+          error: 'topic is required'
+        });
+      }
+
+      const service = await getChainRunnerService();
+      const result = await service.savePromptList(prompts, topic);
+
+      res.json(result);
+    } catch (err) {
+      logger.error('POST /api/chainrunner/prompts error', { error: err.message });
+      res.status(500).json({
+        success: false,
+        error: err.message
+      });
+    }
+  });
+
+  // Generate prompts using AI
+  app.post('/api/chainrunner/prompts/generate', async (req, res) => {
+    try {
+      const { provider, model, topic, count, category, apiKey, ollamaUrl } = req.body;
+
+      if (!provider) {
+        return res.status(400).json({
+          success: false,
+          error: 'provider is required (anthropic, openai, ollama)'
+        });
+      }
+
+      if (!topic) {
+        return res.status(400).json({
+          success: false,
+          error: 'topic is required'
+        });
+      }
+
+      if (!count || count < 1 || count > 100) {
+        return res.status(400).json({
+          success: false,
+          error: 'count must be between 1 and 100'
+        });
+      }
+
+      if (provider !== 'ollama' && !apiKey) {
+        return res.status(400).json({
+          success: false,
+          error: 'apiKey is required for non-Ollama providers'
+        });
+      }
+
+      const service = await getChainRunnerService();
+      const result = await service.generatePrompts({
+        provider,
+        model: model || (provider === 'anthropic' ? 'claude-sonnet-4-20250514' : provider === 'openai' ? 'gpt-4o' : 'mistral'),
+        topic,
+        count: parseInt(count),
+        category: category || 'general',
+        apiKey,
+        ollamaUrl
+      });
+
+      res.json(result);
+    } catch (err) {
+      logger.error('POST /api/chainrunner/prompts/generate error', { error: err.message });
+      res.status(500).json({
+        success: false,
+        error: err.message
+      });
+    }
+  });
+
+  // Start a chain run
+  app.post('/api/chainrunner/run', async (req, res) => {
+    try {
+      const { config, prompts, apiKeys } = req.body;
+
+      if (!config) {
+        return res.status(400).json({
+          success: false,
+          error: 'config is required'
+        });
+      }
+
+      if (!config.agents || !Array.isArray(config.agents) || config.agents.length === 0) {
+        return res.status(400).json({
+          success: false,
+          error: 'config.agents array is required and must not be empty'
+        });
+      }
+
+      if (!prompts || !Array.isArray(prompts) || prompts.length === 0) {
+        return res.status(400).json({
+          success: false,
+          error: 'prompts array is required and must not be empty'
+        });
+      }
+
+      if (!apiKeys || typeof apiKeys !== 'object') {
+        return res.status(400).json({
+          success: false,
+          error: 'apiKeys object is required (e.g., { ANTHROPIC_API_KEY: "...", OPENAI_API_KEY: "..." })'
+        });
+      }
+
+      const service = await getChainRunnerService();
+
+      // Check if already running
+      const status = service.getStatus();
+      if (status.status === 'running') {
+        return res.status(409).json({
+          success: false,
+          error: 'A chain run is already in progress. Stop it first or wait for it to complete.'
+        });
+      }
+
+      // Start chain run asynchronously (don't await)
+      service.runChain(config, prompts, apiKeys).catch(err => {
+        logger.error('Chain run failed', { error: err.message });
+      });
+
+      // Return immediately with run ID
+      const currentStatus = service.getStatus();
+
+      res.json({
+        success: true,
+        message: 'Chain run started',
+        runId: currentStatus.runId,
+        status: currentStatus.status
+      });
+    } catch (err) {
+      logger.error('POST /api/chainrunner/run error', { error: err.message });
+      res.status(500).json({
+        success: false,
+        error: err.message
+      });
+    }
+  });
+
+  // Get current run status
+  app.get('/api/chainrunner/status', async (req, res) => {
+    try {
+      const service = await getChainRunnerService();
+      const result = service.getStatus();
+
+      res.json(result);
+    } catch (err) {
+      logger.error('GET /api/chainrunner/status error', { error: err.message });
+      res.status(500).json({
+        success: false,
+        error: err.message
+      });
+    }
+  });
+
+  // Stop current run
+  app.post('/api/chainrunner/stop', async (req, res) => {
+    try {
+      const service = await getChainRunnerService();
+      const result = service.stopChain();
+
+      if (!result.success) {
+        return res.status(404).json(result);
+      }
+
+      res.json(result);
+    } catch (err) {
+      logger.error('POST /api/chainrunner/stop error', { error: err.message });
+      res.status(500).json({
+        success: false,
+        error: err.message
+      });
+    }
+  });
+
+  // List sessions
+  app.get('/api/chainrunner/sessions', async (req, res) => {
+    try {
+      const service = await getChainRunnerService();
+      const result = await service.listSessions();
+
+      res.json(result);
+    } catch (err) {
+      logger.error('GET /api/chainrunner/sessions error', { error: err.message });
+      res.status(500).json({
+        success: false,
+        error: err.message
+      });
+    }
+  });
+
+  // Get specific session
+  app.get('/api/chainrunner/sessions/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const service = await getChainRunnerService();
+      const result = await service.getSession(id);
+
+      if (!result.success) {
+        return res.status(404).json(result);
+      }
+
+      res.json(result);
+    } catch (err) {
+      logger.error('GET /api/chainrunner/sessions/:id error', { error: err.message });
+      res.status(500).json({
+        success: false,
+        error: err.message
+      });
+    }
+  });
+
+  // Export session as RAG training data
+  app.get('/api/chainrunner/sessions/:id/export', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { format = 'jsonl', category = 'general', tags } = req.query;
+
+      const service = await getChainRunnerService();
+
+      // Parse tags if provided
+      let tagArray = [];
+      if (tags) {
+        tagArray = tags.split(',').map(t => t.trim()).filter(t => t.length > 0);
+      }
+
+      const result = await service.exportSession(id, format, category, tagArray);
+
+      if (!result.success) {
+        return res.status(404).json(result);
+      }
+
+      res.json(result);
+    } catch (err) {
+      logger.error('GET /api/chainrunner/sessions/:id/export error', { error: err.message });
       res.status(500).json({
         success: false,
         error: err.message

@@ -672,6 +672,45 @@ Ready to begin **Phase 1: Core Infrastructure**
 
 ---
 
+### 2025-12-31 - DGX Command Event Emission Fix
+
+**Problem:**
+- Commands executed via HTTP API (`/api/dgx/exec/:id`) were not emitting events to renderer
+- Only IPC commands were triggering UI updates
+- HTTP API calls bypassed the IPC handler that was manually emitting events
+
+**Solution:**
+- Implemented EventEmitter pattern in dgxManager
+- All command executions now emit events regardless of call method (HTTP API or IPC)
+- Centralized event emission in executeCommand() function
+
+**Implementation:**
+1. Added EventEmitter to `dgxManager.cjs`:
+   - Created `dgxEvents` emitter
+   - Emit 'command-executed' after storing command history
+   - Export dgxEvents for main.cjs to subscribe
+2. Updated `main.cjs`:
+   - Subscribe to dgxEvents after createWindow()
+   - Forward events to renderer via webContents.send()
+   - Removed duplicate emission from IPC handler
+3. Result: Single source of truth for all command events
+
+**Benefits:**
+- HTTP API and IPC commands both trigger UI updates
+- No duplicate code
+- Decoupled design (dgxManager doesn't need mainWindow reference)
+- Real-time command history updates in DGX Spark UI
+
+**Files Modified:**
+- `electron/services/dgxManager.cjs` - EventEmitter integration
+- `electron/main.cjs` - Event subscription, removed duplicate
+
+**Files Created:**
+- `DGX-EVENT-EMISSION-FIX.md` - Detailed documentation
+- `test-dgx-events.js` - Test script for verification
+
+---
+
 ### 2025-12-30 - Winston Logging Framework Implementation
 
 **Logging System:**
@@ -762,3 +801,66 @@ logger.db('SELECT', 'users', { filters: { email: 'user@example.com' } });
 - Commit: `87204168`
 - 143 files changed, 40,816 insertions
 - Pushed to: https://github.com/husky2466-codo/ai-command-center
+
+---
+
+### 2026-01-01 - DGX Spark Orchestration Workflow
+
+**Goal**: Use Claude Code as the orchestrator for ALL DGX Spark work, with projects/jobs auto-updating in ACC as work progresses.
+
+**Workflow Established**:
+1. Claude creates/updates projects via ACC API when starting work
+2. Commands executed on DGX via `/api/dgx/exec/:id`
+3. Jobs tracked with status: started → growing → completed
+4. All work visible in DGX Spark UI
+
+**Workspace Structure Created**:
+```
+~/projects/
+├── README.md           # Workspace documentation
+├── training/           # ML training jobs
+├── inference/          # Model serving (ComfyUI lives here now)
+│   └── ComfyUI/        # 63GB, Flux models
+├── data/               # Datasets
+└── outputs/            # Results, checkpoints
+```
+
+**DGX Cleanup Performed**:
+- Deleted: `flux_*.log`, `download_flux*.sh`, `comfyui-setup/`
+- Moved: `~/ComfyUI/` → `~/projects/inference/ComfyUI/`
+- Killed stale watcher process (PID 56657) watching old path
+
+**ComfyUI Post-Move Test**:
+- Verified startup with `nohup` for persistence
+- GPU detected: NVIDIA GB10, 122GB VRAM
+- PyTorch: 2.11.0 (CUDA 12.8)
+- Server running: `http://192.168.3.20:8188`
+- Registered as ACC job (status: running)
+
+**ACC Projects Registered**:
+| Project | Path | Type | Status |
+|---------|------|------|--------|
+| DGX Workspace | `/home/myers/projects` | other | active |
+| ComfyUI | `/home/myers/projects/inference/ComfyUI` | generative | active |
+
+**Connection Details**:
+- Host: 192.168.3.20 (persistent site-to-site VPN via UCG-Ultimate)
+- User: myers
+- SSH Key: `C:/Users/myers/.ssh/dgx_spark_ross`
+- Connection ID: `32fb7a69-890e-4074-83d8-8f3e15b8b28a`
+
+**API Pattern for DGX Work**:
+```bash
+# Execute command on DGX
+curl -X POST http://localhost:3939/api/dgx/exec/CONNECTION_ID \
+  -H "Content-Type: application/json" \
+  -d '{"command": "your-command-here"}'
+
+# Create project
+curl -X POST http://localhost:3939/api/dgx/projects \
+  -d '{"connection_id": "...", "name": "...", "remote_path": "..."}'
+
+# Track job
+curl -X POST http://localhost:3939/api/dgx/jobs \
+  -d '{"project_id": "...", "name": "...", "status": "running"}'
+```

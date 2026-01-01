@@ -1,13 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Users, Search, Mail, Phone, RefreshCw } from 'lucide-react';
-import relationshipService from '../../services/relationshipService.js';
 import './Contacts.css';
 
 /**
- * Contacts - Local Contact Directory
+ * Contacts - Google Account Contact Directory
  *
  * Features:
- * - Display contacts from local database
+ * - Display synced Google contacts from account_contacts table
  * - Alphabetical sidebar for quick navigation
  * - Search by name, email, company
  * - Contact detail panel
@@ -30,8 +29,26 @@ export default function Contacts() {
       setLoading(true);
       setError(null);
 
-      const contactsList = await relationshipService.getAllContacts();
-      console.log('[Contacts] Loaded contacts from database:', contactsList.length);
+      // Fetch all account contacts from Google synced data
+      const result = await window.electronAPI.dbQuery(`
+        SELECT
+          id,
+          display_name as name,
+          email,
+          phone,
+          company,
+          job_title as title,
+          photo_url
+        FROM account_contacts
+        ORDER BY display_name ASC
+      `);
+
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to query contacts');
+      }
+
+      const contactsList = result.data || [];
+      console.log('[Contacts] Loaded contacts from account_contacts:', contactsList.length);
 
       setContacts(contactsList);
     } catch (err) {

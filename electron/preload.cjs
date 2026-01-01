@@ -103,6 +103,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   googleCreateEvent: (accountId, eventData) => ipcRenderer.invoke('google:create-event', accountId, eventData),
   googleUpdateEvent: (accountId, eventId, updates) => ipcRenderer.invoke('google:update-event', accountId, eventId, updates),
   googleDeleteEvent: (accountId, eventId) => ipcRenderer.invoke('google:delete-event', accountId, eventId),
+  googleListCalendars: (accountId) => ipcRenderer.invoke('google:list-calendars', accountId),
+  googleGetCalendars: (accountId) => ipcRenderer.invoke('google:get-calendars', accountId),
+  googleToggleCalendarSync: (accountId, calendarId, isSelected) => ipcRenderer.invoke('google:toggle-calendar-sync', accountId, calendarId, isSelected),
 
   // Google Account Service - Contacts
   googleGetContacts: (accountId, options) => ipcRenderer.invoke('google:get-contacts', accountId, options),
@@ -203,6 +206,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   dgxStartTunnel: (connectionId, localPort, remotePort) => ipcRenderer.invoke('dgx:start-tunnel', connectionId, localPort, remotePort),
   dgxStopTunnel: (connectionId) => ipcRenderer.invoke('dgx:stop-tunnel', connectionId),
   dgxListContainers: (connectionId) => ipcRenderer.invoke('dgx:list-containers', connectionId),
+  onDgxCommandExecuted: (callback) => {
+    const handler = (event, data) => callback(data);
+    ipcRenderer.on('dgx:command-executed', handler);
+    return () => ipcRenderer.removeListener('dgx:command-executed', handler);
+  },
+  dgxGetCommandHistory: () => ipcRenderer.invoke('dgx:get-command-history'),
 
   // Project Watcher operations
   projectStartWatching: (projectId, fsPath) => ipcRenderer.invoke('project:start-watching', projectId, fsPath),
@@ -216,5 +225,17 @@ contextBridge.exposeInMainWorld('electronAPI', {
     const handler = (event, data) => callback(data);
     ipcRenderer.on('project:progress-updated', handler);
     return () => ipcRenderer.removeListener('project:progress-updated', handler);
+  },
+
+  // DGX Metrics Exports
+  dgxExportsList: (connectionId) => ipcRenderer.invoke('dgx-exports:list', connectionId),
+  dgxExportsRead: (filename) => ipcRenderer.invoke('dgx-exports:read', filename),
+  dgxExportsDelete: (filename) => ipcRenderer.invoke('dgx-exports:delete', filename),
+  dgxExportsStartWatching: () => ipcRenderer.invoke('dgx-exports:start-watching'),
+  dgxExportsStopWatching: () => ipcRenderer.invoke('dgx-exports:stop-watching'),
+  onDgxExportsChanged: (callback) => {
+    const handler = (event, data) => callback(data);
+    ipcRenderer.on('dgx-exports:changed', handler);
+    return () => ipcRenderer.removeListener('dgx-exports:changed', handler);
   },
 });

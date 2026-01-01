@@ -1138,6 +1138,174 @@ class GoogleAccountService {
   // =========================================================================
 
   /**
+   * List all calendars available to the user
+   * @param {string} accountId - Account ID
+   * @returns {Promise<Array>} List of calendars
+   */
+  async listCalendars(accountId) {
+    await this.ensureValidToken();
+
+    try {
+      const response = await withExponentialBackoff(async () => {
+        return await this.calendar.calendarList.list();
+      });
+
+      const calendars = response.data.items || [];
+
+      // Store calendar metadata in database
+      for (const calendar of calendars) {
+        this._upsertCalendar(accountId, calendar);
+      }
+
+      console.log(`[GoogleService] Listed ${calendars.length} calendars for ${this.email}`);
+      return calendars;
+    } catch (error) {
+      console.error(`[GoogleService] Failed to list calendars:`, error.message);
+      throw error;
+    }
+  }
+
+  /**
+   * Get calendars from local database
+   * @param {string} accountId - Account ID
+   * @returns {Array} List of calendars
+   */
+  getCalendarsFromDB(accountId) {
+    const stmt = this.db.prepare(`
+      SELECT * FROM account_calendars
+      WHERE account_id = ?
+      ORDER BY is_primary DESC, summary ASC
+    `);
+    return stmt.all(accountId);
+  }
+
+  /**
+   * Toggle calendar selection for sync
+   * @param {string} accountId - Account ID
+   * @param {string} calendarId - Calendar ID
+   * @param {boolean} isSelected - Whether to sync this calendar
+   */
+  toggleCalendarSync(accountId, calendarId, isSelected) {
+    const stmt = this.db.prepare(`
+      UPDATE account_calendars
+      SET is_selected = ?
+      WHERE account_id = ? AND calendar_id = ?
+    `);
+    stmt.run(isSelected ? 1 : 0, accountId, calendarId);
+    console.log(`[GoogleService] Calendar ${calendarId} sync ${isSelected ? 'enabled' : 'disabled'}`);
+  }
+
+  /**
+   * Upsert calendar metadata into database
+   * @private
+   */
+  _upsertCalendar(accountId, calendar) {
+    const stmt = this.db.prepare(`
+      INSERT OR REPLACE INTO account_calendars (
+        id, account_id, calendar_id, summary, description, location,
+        time_zone, color_id, background_color, foreground_color,
+        access_role, is_primary, is_selected, synced_at, raw_data
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+
+    const calendarDbId = `${accountId}_${calendar.id}`;
+    const isPrimary = calendar.primary ? 1 : 0;
+
+    // Get existing is_selected value or default to 1 (selected)
+    const existing = this.db.prepare(
+      'SELECT is_selected FROM account_calendars WHERE id = ?'
+    ).get(calendarDbId);
+    const isSelected = existing ? existing.is_selected : 1;
+
+    stmt.run(
+      calendarDbId,
+      accountId,
+      calendar.id,
+      calendar.summary,
+      calendar.description,
+      calendar.location,
+      calendar.timeZone,
+      calendar.colorId,
+      calendar.backgroundColor,
+      calendar.foregroundColor,
+      calendar.accessRole,
+      isPrimary,
+      isSelected,
+      Date.now(),
+      JSON.stringify(calendar)
+    );
+  }
+
+  /**
+   * Sync calendar events from all selected calendars
+   * @param {string} accountId - Account ID
+   * @param {Object} options - Sync options
+   * @param {number} options.maxResults - Max events to fetch per calendar (default: 250)
+   * @param {string} options.timeMin - Start time (ISO string, default: 6 months ago)
+   * @param {string} options.timeMax - End time (ISO string, default: 1 year from now)
+   * @param {boolean} options.syncAllCalendars - Sync all selected calendars (default: true)
+   * @returns {Promise<Object>} Sync results
+   */
+  async syncAllCalendars(accountId, options = {}) {
+    await this.ensureValidToken();
+
+    const {
+      maxResults = 250,
+      timeMin = new Date(Date.now() - 6 * 30 * 24 * 60 * 60 * 1000).toISOString(),
+      timeMax = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+      syncAllCalendars = true
+    } = options;
+
+    const DEBUG_CALENDAR = process.env.DEBUG_CALENDAR === 'true';
+
+    try {
+      // First, refresh the calendar list
+      await this.listCalendars(accountId);
+
+      // Get selected calendars from DB
+      const calendars = this.getCalendarsFromDB(accountId);
+      const selectedCalendars = calendars.filter(cal => cal.is_selected === 1);
+
+      if (DEBUG_CALENDAR) {
+        console.log(`[GoogleService] Syncing ${selectedCalendars.length} calendars for ${this.email}`);
+      }
+
+      let totalSynced = 0;
+      const results = {};
+
+      for (const calendar of selectedCalendars) {
+        try {
+          const result = await this.syncCalendar(accountId, {
+            calendarId: calendar.calendar_id,
+            maxResults,
+            timeMin,
+            timeMax
+          });
+
+          results[calendar.calendar_id] = result;
+          totalSynced += result.synced;
+        } catch (error) {
+          console.error(`[GoogleService] Failed to sync calendar ${calendar.summary}:`, error.message);
+          results[calendar.calendar_id] = { error: error.message };
+        }
+      }
+
+      if (DEBUG_CALENDAR) {
+        console.log(`[GoogleService] Multi-calendar sync complete: ${totalSynced} total events`);
+      }
+
+      return {
+        totalSynced,
+        calendars: selectedCalendars.length,
+        results
+      };
+    } catch (error) {
+      console.error(`[GoogleService] Multi-calendar sync failed:`, error.message);
+      throw error;
+    }
+  }
+
+  /**
    * Sync calendar events
    * @param {string} accountId - Account ID
    * @param {Object} options - Sync options

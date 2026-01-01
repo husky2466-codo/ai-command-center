@@ -82,9 +82,12 @@ router.put('/folders/:id', (req, res) => {
 
     if (name !== undefined) { updates.push('name = ?'); values.push(name); }
     if (parent_id !== undefined) { updates.push('parent_id = ?'); values.push(parent_id); }
+    if (sort_order !== undefined) { updates.push('sort_order = ?'); values.push(sort_order); }
 
-    updates.push('updated_at = ?');
-    values.push(new Date().toISOString());
+    if (updates.length === 0) {
+      return res.status(400).json({ success: false, error: 'No valid fields to update' });
+    }
+
     values.push(req.params.id);
 
     db.prepare(`UPDATE knowledge_folders SET ${updates.join(', ')} WHERE id = ?`).run(...values);

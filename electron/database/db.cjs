@@ -91,7 +91,9 @@ function runMigrations() {
     '006_dgx_spark',
     '007_email_signatures',
     '008_email_templates',
-    '009_saved_searches'
+    '009_saved_searches',
+    '010_account_calendars',
+    '011_dgx_operations'
   ];
 
   const migrationsDir = path.join(__dirname, 'migrations');

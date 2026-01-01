@@ -3,6 +3,7 @@ const path = require('path');
 const fs = require('fs');
 const pty = require('node-pty');
 const { NodeSSH } = require('node-ssh');
+const chokidar = require('chokidar');
 const logger = require('./utils/logger.cjs');
 const { setupErrorHandlers, wrapIpcHandler } = require('./utils/errorHandler.cjs');
 const { initializeDatabase, closeDatabase, getDatabase } = require('./database/db.cjs');
@@ -239,6 +240,8 @@ app.whenReady().then(async () => {
   ensureDir(path.join(userDataPath, 'chain-configs'));
   ensureDir(path.join(userDataPath, 'extracted-memories'));
   ensureDir(path.join(userDataPath, 'tokens'));
+  ensureDir(path.join(userDataPath, 'exports'));
+  ensureDir(path.join(userDataPath, 'exports', 'dgx-metrics'));
 
   // Initialize database and register IPC handlers
   try {
@@ -309,6 +312,13 @@ app.whenReady().then(async () => {
   // app.setAsDefaultProtocolClient('aicommandcenter');
 
   createWindow();
+
+  // Subscribe to DGX command events and forward to renderer
+  dgxManager.dgxEvents.on('command-executed', (data) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('dgx:command-executed', data);
+    }
+  });
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
@@ -910,10 +920,59 @@ ipcMain.handle('google:sync-calendar', async (event, accountId) => {
     const service = new GoogleAccountService(db, account.email);
     await service.initialize();
 
-    const results = await service.syncCalendar(accountId);
+    // Use syncAllCalendars to sync all selected calendars
+    const results = await service.syncAllCalendars(accountId);
     return { success: true, data: results };
   } catch (error) {
     console.error('[Main] google:sync-calendar error:', error.message);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('google:list-calendars', async (event, accountId) => {
+  try {
+    const db = getDatabase();
+    const account = await GoogleAccountService.getAccount(db, accountId);
+
+    const service = new GoogleAccountService(db, account.email);
+    await service.initialize();
+
+    const calendars = await service.listCalendars(accountId);
+    return { success: true, data: calendars };
+  } catch (error) {
+    console.error('[Main] google:list-calendars error:', error.message);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('google:get-calendars', async (event, accountId) => {
+  try {
+    const db = getDatabase();
+    const account = await GoogleAccountService.getAccount(db, accountId);
+
+    const service = new GoogleAccountService(db, account.email);
+    await service.initialize();
+
+    const calendars = service.getCalendarsFromDB(accountId);
+    return { success: true, data: calendars };
+  } catch (error) {
+    console.error('[Main] google:get-calendars error:', error.message);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('google:toggle-calendar-sync', async (event, accountId, calendarId, isSelected) => {
+  try {
+    const db = getDatabase();
+    const account = await GoogleAccountService.getAccount(db, accountId);
+
+    const service = new GoogleAccountService(db, account.email);
+    await service.initialize();
+
+    service.toggleCalendarSync(accountId, calendarId, isSelected);
+    return { success: true };
+  } catch (error) {
+    console.error('[Main] google:toggle-calendar-sync error:', error.message);
     return { success: false, error: error.message };
   }
 });
@@ -1927,12 +1986,15 @@ ipcMain.handle('pty:create', () => {
     ? 'powershell.exe'
     : process.env.SHELL || '/bin/bash';
 
+  // Set default working directory to AI Command Center project
+  const defaultCwd = 'D:\\Projects\\ai-command-center';
+
   // Create PTY process
   const ptyProcess = pty.spawn(shell, [], {
     name: 'xterm-color',
     cols: 80,
     rows: 30,
-    cwd: process.env.HOME || process.cwd(),
+    cwd: defaultCwd,
     env: process.env
   });
 
@@ -1955,7 +2017,12 @@ ipcMain.handle('pty:create', () => {
     }
   });
 
-  console.log(`Created terminal ${terminalId} with shell: ${shell}`);
+  // Run startup command after a brief delay to ensure terminal is ready
+  setTimeout(() => {
+    ptyProcess.write('claude --dangerously-skip-permissions\r');
+  }, 100);
+
+  console.log(`Created terminal ${terminalId} with shell: ${shell} in ${defaultCwd}`);
   return terminalId;
 });
 
@@ -2057,7 +2124,13 @@ ipcMain.handle('dgx:check-status', async (event, connectionId) => {
 
 // Execute command on DGX server
 ipcMain.handle('dgx:exec-command', async (event, connectionId, command) => {
+  // dgxManager.executeCommand will emit the event via dgxEvents
   return await dgxManager.executeCommand(connectionId, command);
+});
+
+// Get command history
+ipcMain.handle('dgx:get-command-history', async () => {
+  return { success: true, data: dgxManager.commandHistory || [] };
 });
 
 // Get GPU metrics from nvidia-smi
@@ -2229,5 +2302,142 @@ ipcMain.handle('project:get-watched-projects', async () => {
   } catch (error) {
     console.error('[Main] project:get-watched-projects error:', error.message);
     return { success: false, error: error.message };
+  }
+});
+
+// =========================================================================
+// DGX METRICS EXPORT FILE HANDLERS
+// =========================================================================
+
+let exportsWatcher = null;
+
+// List all metric exports
+ipcMain.handle('dgx-exports:list', async (event, connectionId = null) => {
+  try {
+    const exportsDir = path.join(userDataPath, 'exports', 'dgx-metrics');
+
+    if (!fs.existsSync(exportsDir)) {
+      return { success: true, data: [] };
+    }
+
+    const files = fs.readdirSync(exportsDir)
+      .filter(f => f.endsWith('.json'))
+      .map(filename => {
+        const filePath = path.join(exportsDir, filename);
+        const stats = fs.statSync(filePath);
+        // Extract connection ID from filename: dgx-metrics-{connectionId}-{timestamp}.json
+        const match = filename.match(/dgx-metrics-([^-]+-[^-]+-[^-]+-[^-]+-[^-]+)-/);
+        const fileConnectionId = match ? match[1] : null;
+
+        return {
+          filename,
+          path: filePath,
+          size: stats.size,
+          modified: stats.mtime.toISOString(),
+          connectionId: fileConnectionId
+        };
+      })
+      .filter(f => !connectionId || f.connectionId === connectionId)
+      .sort((a, b) => new Date(b.modified) - new Date(a.modified));
+
+    return { success: true, data: files };
+  } catch (err) {
+    console.error('[DGX Exports] List error:', err);
+    return { success: false, error: err.message };
+  }
+});
+
+// Read a specific export file
+ipcMain.handle('dgx-exports:read', async (event, filename) => {
+  try {
+    const exportsDir = path.join(userDataPath, 'exports', 'dgx-metrics');
+    const filePath = path.join(exportsDir, filename);
+
+    if (!fs.existsSync(filePath)) {
+      return { success: false, error: 'File not found' };
+    }
+
+    const content = fs.readFileSync(filePath, 'utf8');
+    const data = JSON.parse(content);
+
+    return { success: true, data };
+  } catch (err) {
+    console.error('[DGX Exports] Read error:', err);
+    return { success: false, error: err.message };
+  }
+});
+
+// Delete an export file
+ipcMain.handle('dgx-exports:delete', async (event, filename) => {
+  try {
+    const exportsDir = path.join(userDataPath, 'exports', 'dgx-metrics');
+    const filePath = path.join(exportsDir, filename);
+
+    if (!fs.existsSync(filePath)) {
+      return { success: false, error: 'File not found' };
+    }
+
+    fs.unlinkSync(filePath);
+    console.log('[DGX Exports] Deleted:', filename);
+
+    return { success: true };
+  } catch (err) {
+    console.error('[DGX Exports] Delete error:', err);
+    return { success: false, error: err.message };
+  }
+});
+
+// Start watching exports folder
+ipcMain.handle('dgx-exports:start-watching', async () => {
+  try {
+    const exportsDir = path.join(userDataPath, 'exports', 'dgx-metrics');
+
+    // Ensure directory exists
+    if (!fs.existsSync(exportsDir)) {
+      fs.mkdirSync(exportsDir, { recursive: true });
+    }
+
+    // Stop existing watcher if any
+    if (exportsWatcher) {
+      await exportsWatcher.close();
+    }
+
+    exportsWatcher = chokidar.watch(exportsDir, {
+      persistent: true,
+      ignoreInitial: true,
+      awaitWriteFinish: { stabilityThreshold: 500 }
+    });
+
+    exportsWatcher.on('add', (filePath) => {
+      const filename = path.basename(filePath);
+      if (filename.endsWith('.json')) {
+        mainWindow?.webContents.send('dgx-exports:changed', { type: 'add', filename });
+      }
+    });
+
+    exportsWatcher.on('unlink', (filePath) => {
+      const filename = path.basename(filePath);
+      mainWindow?.webContents.send('dgx-exports:changed', { type: 'delete', filename });
+    });
+
+    console.log('[DGX Exports] Started watching:', exportsDir);
+    return { success: true };
+  } catch (err) {
+    console.error('[DGX Exports] Watch error:', err);
+    return { success: false, error: err.message };
+  }
+});
+
+// Stop watching exports folder
+ipcMain.handle('dgx-exports:stop-watching', async () => {
+  try {
+    if (exportsWatcher) {
+      await exportsWatcher.close();
+      exportsWatcher = null;
+      console.log('[DGX Exports] Stopped watching');
+    }
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
   }
 });

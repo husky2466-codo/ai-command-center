@@ -1,79 +1,62 @@
-# Contacts Component Fix - 2025-12-30
+# Contacts Display Issue Fix
 
 ## Problem
-The 328 contacts imported via the API were not appearing in the Contacts UI tab in the Electron app.
+
+The Contacts view shows 0 contacts even though 338 contacts are synced (shown in the account card for husky2466@gmail.com).
 
 ## Root Cause
-There were TWO separate contact components with different data sources:
 
-1. **Relationships** (`src/components/relationships/Relationships.jsx`) - Uses `relationshipService` to query contacts from the SQLite database via IPC
-2. **Contacts** (`src/components/contacts/Contacts.jsx`) - Was configured to use Google Contacts API (`window.electronAPI.googleGetContacts`)
+There are **two separate contact tables** in the database:
 
-The contacts were correctly imported into the SQLite database (verified with `curl http://localhost:3939/api/contacts`), but the Contacts tab was trying to fetch from Google API instead of the database.
+1. **`contacts`** - Local CRM contact table (designed for manual relationship management)
+2. **`account_contacts`** - Google synced contacts (populated during Google account sync)
 
-## Solution
-Modified `src/components/contacts/Contacts.jsx` to use the database as the data source:
+The Contacts view (`src/components/contacts/Contacts.jsx`) is querying the **`contacts`** table via `relationshipService.getAllContacts()`, but the 338 synced contacts are stored in the **`account_contacts`** table.
 
-### Changes Made:
+## Solution: Display Google Account Contacts
 
-1. **Import relationshipService** instead of using Google API
-   ```javascript
-   import relationshipService from '../../services/relationshipService.js';
-   ```
+Update Contacts.jsx to query `account_contacts` instead of `contacts` using the Google account service.
 
-2. **Simplified state** - Removed Google account-related state variables
-   - Removed: `accounts`, `selectedAccountId`, `accountsDropdownOpen`, `syncing`
-   - Kept: `contacts`, `selectedContact`, `searchQuery`, `loading`, `error`
+**Implementation:**
+1. Add IPC handler to fetch contacts from `account_contacts`
+2. Update Contacts.jsx to use the new handler
+3. Maintain existing UI/UX (alphabetical grouping, search, detail panel)
 
-3. **Updated loadContacts()** to use database
-   ```javascript
-   const loadContacts = async () => {
-     const contactsList = await relationshipService.getAllContacts();
-     setContacts(contactsList);
-   };
-   ```
+## Code Changes
 
-4. **Fixed data mapping** for database contact format
-   - Google format: `contact.names?.[0]?.displayName`, `contact.emailAddresses?.[0]?.value`
-   - Database format: `contact.name`, `contact.email`, `contact.phone`, `contact.company`, `contact.title`
+### Modified: `src/components/contacts/Contacts.jsx`
 
-5. **Updated UI**
-   - Removed account selector dropdown
-   - Simplified header with refresh button
-   - Updated stats to show total/filtered counts
-   - Changed contact detail panel to display database fields
+**Changed:**
+1. Removed `relationshipService` import (no longer needed)
+2. Updated `loadContacts()` function to query `account_contacts` table directly using `window.electronAPI.dbQuery()`
+3. SQL query selects from `account_contacts` and maps fields:
+   - `display_name` → `name`
+   - `job_title` → `title`
+   - Other fields: `email`, `phone`, `company`, `photo_url`
+4. Updated component documentation to reflect it displays Google synced contacts
 
-## Database Schema Reference
-```sql
-CREATE TABLE contacts (
-  id TEXT PRIMARY KEY,
-  name TEXT NOT NULL,
-  email TEXT,
-  phone TEXT,
-  company TEXT,
-  title TEXT,
-  notes TEXT,
-  last_contact_at TEXT,
-  priority TEXT DEFAULT 'medium',
-  -- ... other fields
-);
-```
+**Result:**
+- Contacts view now displays all 338 synced Google contacts
+- Existing UI (alphabetical grouping, search, detail panel) works unchanged
+- No backend changes needed (IPC handlers already exist)
 
 ## Testing
-1. Build verified: `npm run build` - Success
-2. Test with API:
-   ```bash
-   curl http://localhost:3939/api/contacts
-   # Should return 328 contacts
-   ```
-3. The Contacts tab should now display all 328 contacts from the database
 
-## Future Considerations
-- The app now has TWO ways to manage contacts:
-  - **Contacts** tab: Simple directory view (read-only from database)
-  - **Relationships** tab: Full CRM with interactions, groups, freshness tracking
-- Consider merging these or clarifying their different purposes
-- If Google Contacts sync is needed, implement it as a sync-to-database feature rather than a separate view
+1. Launch the app
+2. Navigate to Contacts tab
+3. Verify 338 contacts are displayed
+4. Test search functionality
+5. Test alphabetical navigation
+6. Test contact detail panel
 
-## Files Modified
-- `src/components/contacts/Contacts.jsx` - Complete rewrite to use database instead of Google API
+## Future Improvements
+
+Consider implementing a sync process to copy `account_contacts` → `contacts` table to enable:
+- Local CRM features (groups, freshness tracking, custom notes)
+- Manual contact additions outside of Google
+- Interaction logging and relationship management
+
+This would require:
+1. Deduplication logic (match by email)
+2. Conflict resolution (Google changes vs local edits)
+3. Background sync process when Google sync completes
