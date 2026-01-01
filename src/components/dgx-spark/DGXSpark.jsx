@@ -191,6 +191,7 @@ export default function DGXSpark({ apiKeys }) {
           <OperationsTab
             isConnected={connectionStatus === 'connected'}
             connectionId={activeConnection?.id}
+            hostname={activeConnection?.hostname}
           />
         )}
         {activeTab === 'projects' && <ProjectsTab isConnected={isConnected} connectionId={activeConnection?.id} />}

@@ -10,7 +10,7 @@ import './NewOperationModal.css';
  * New Operation Modal
  * Create and launch new operations on the DGX (servers, training jobs, scripts)
  */
-export default function NewOperationModal({ isOpen, onClose, connectionId, onOperationCreated }) {
+export default function NewOperationModal({ isOpen, onClose, connectionId, hostname, onOperationCreated }) {
   const [formData, setFormData] = useState({
     type: 'server',
     name: '',
@@ -79,27 +79,20 @@ export default function NewOperationModal({ isOpen, onClose, connectionId, onOpe
     setError('');
 
     try {
-      // Prepare operation data
+      // Step 1: Create operation in database with pending status
       const operationData = {
         connection_id: connectionId,
         name: formData.name.trim(),
-        type: formData.type,
-        category: getCategoryFromType(formData.type),
-        status: 'starting',
+        type: formData.type === 'training_job' ? 'job' : formData.type,
+        category: formData.type === 'training_job' ? 'training' :
+                  formData.type === 'server' ? 'webui' : 'script',
+        status: 'pending',
         command: formData.command.trim(),
-        working_directory: formData.workingDir.trim() || '/home/myers/projects',
         port: formData.port ? parseInt(formData.port, 10) : null,
         websocket_url: formData.websocketUrl.trim() || null,
-        model_name: formData.modelName.trim() || null,
-        total_epochs: formData.epochs ? parseInt(formData.epochs, 10) : null,
-        progress: 0,
-        metadata: {
-          created_via: 'ui',
-          created_at: new Date().toISOString()
-        }
+        progress: -1 // indeterminate until we get real progress
       };
 
-      // Create operation in database
       const createResponse = await fetch('http://localhost:3939/api/dgx/operations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -112,44 +105,61 @@ export default function NewOperationModal({ isOpen, onClose, connectionId, onOpe
       }
 
       const { data: createdOperation } = await createResponse.json();
+      const operationId = createdOperation.id;
+      const logFile = `/tmp/op_${operationId}.log`;
 
-      // Build command with nohup for persistence
-      const workingDir = formData.workingDir.trim() || '/home/myers/projects';
-      const commandToRun = buildCommand(formData, createdOperation.id);
+      // Step 2: Execute command on DGX via exec API
+      const workingDir = formData.workingDir.trim() || '~';
+      const execCommand = `cd ${workingDir} && nohup ${formData.command.trim()} > ${logFile} 2>&1 & echo $!`;
 
-      // Execute command on DGX
       const execResponse = await fetch(`http://localhost:3939/api/dgx/exec/${connectionId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          command: `cd ${workingDir} && ${commandToRun}`
-        })
+        body: JSON.stringify({ command: execCommand })
       });
 
       if (!execResponse.ok) {
         const errorData = await execResponse.json();
+        // Update operation to failed status
+        await fetch(`http://localhost:3939/api/dgx/operations/${operationId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: 'failed' })
+        });
         throw new Error(errorData.error || 'Failed to execute command on DGX');
       }
 
       const { data: execResult } = await execResponse.json();
 
-      // Update operation status to running
-      await fetch(`http://localhost:3939/api/dgx/operations/${createdOperation.id}`, {
+      // Step 3: Parse PID from stdout and update operation
+      const stdout = execResult.stdout || execResult.output || '';
+      const pid = parseInt(stdout.trim(), 10);
+
+      const updateData = {
+        status: 'running',
+        log_file: logFile
+      };
+
+      // Only set PID if we got a valid number
+      if (!isNaN(pid) && pid > 0) {
+        updateData.pid = pid;
+      }
+
+      // Build URL for servers using the connection's hostname
+      if (formData.type === 'server' && formData.port) {
+        const host = hostname || '192.168.3.20';
+        updateData.url = `http://${host}:${formData.port}`;
+      }
+
+      await fetch(`http://localhost:3939/api/dgx/operations/${operationId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          status: 'running',
-          metadata: {
-            ...operationData.metadata,
-            started_at: new Date().toISOString(),
-            execution_output: execResult.output
-          }
-        })
+        body: JSON.stringify(updateData)
       });
 
       // Success! Notify parent and close modal
       if (onOperationCreated) {
-        onOperationCreated(createdOperation);
+        onOperationCreated({ ...createdOperation, ...updateData });
       }
       handleClose();
     } catch (err) {
@@ -160,29 +170,6 @@ export default function NewOperationModal({ isOpen, onClose, connectionId, onOpe
     }
   };
 
-  // Build persistent command with nohup
-  const buildCommand = (data, operationId) => {
-    const logFile = `~/projects/logs/${operationId}.log`;
-    const pidFile = `~/projects/logs/${operationId}.pid`;
-
-    // Ensure log directory exists
-    const mkdirCmd = 'mkdir -p ~/projects/logs';
-
-    // Wrap command with nohup for persistence
-    const nohupCmd = `nohup ${data.command} > ${logFile} 2>&1 & echo $! > ${pidFile}`;
-
-    return `${mkdirCmd} && ${nohupCmd}`;
-  };
-
-  // Get category from type
-  const getCategoryFromType = (type) => {
-    switch (type) {
-      case 'server': return 'web_server';
-      case 'training_job': return 'model_training';
-      case 'script': return 'utility_script';
-      default: return 'other';
-    }
-  };
 
   // Browse for directory (future: could integrate with file picker)
   const handleBrowseDirectory = () => {
@@ -374,6 +361,7 @@ NewOperationModal.propTypes = {
   isOpen: PropTypes.bool.isRequired,
   onClose: PropTypes.func.isRequired,
   connectionId: PropTypes.string.isRequired,
+  hostname: PropTypes.string,
   onOperationCreated: PropTypes.func
 };
 

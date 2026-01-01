@@ -14,6 +14,7 @@ const GoogleAccountService = require('./services/googleAccountService.cjs');
 const { startApiServer, stopApiServer, getServerStatus } = require('./api/server.cjs');
 const dgxManager = require('./services/dgxManager.cjs');
 const projectWatcher = require('./services/projectWatcher.cjs');
+const operationMonitor = require('./services/operationMonitor.cjs');
 
 // Setup error handlers for main process
 setupErrorHandlers();
@@ -320,6 +321,13 @@ app.whenReady().then(async () => {
     }
   });
 
+  // Forward operation updates to renderer
+  operationMonitor.on('operation-update', (data) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('dgx:operation-update', data);
+    }
+  });
+
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       createWindow();
@@ -342,6 +350,14 @@ app.on('window-all-closed', () => {
 
 app.on('before-quit', async () => {
   logger.info('Application shutting down');
+
+  // Stop all operation monitors
+  try {
+    operationMonitor.stopAll();
+    logger.info('All operation monitors stopped');
+  } catch (err) {
+    logger.error('Error stopping operation monitors', { error: err.message });
+  }
 
   // Stop all project watchers
   try {
@@ -2136,6 +2152,18 @@ ipcMain.handle('dgx:get-command-history', async () => {
 // Get GPU metrics from nvidia-smi
 ipcMain.handle('dgx:get-metrics', async (event, connectionId) => {
   return await dgxManager.getGPUMetrics(connectionId);
+});
+
+// Start operation monitoring for a connection
+ipcMain.handle('dgx:start-monitoring', async (event, connectionId) => {
+  operationMonitor.startMonitoring(connectionId);
+  return { success: true };
+});
+
+// Stop operation monitoring for a connection
+ipcMain.handle('dgx:stop-monitoring', async (event, connectionId) => {
+  operationMonitor.stopMonitoring(connectionId);
+  return { success: true };
 });
 
 // Start port forwarding tunnel

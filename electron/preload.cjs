@@ -213,6 +213,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   dgxGetCommandHistory: () => ipcRenderer.invoke('dgx:get-command-history'),
 
+  // DGX Operation Monitoring
+  startOperationMonitoring: (connectionId) => ipcRenderer.invoke('dgx:start-monitoring', connectionId),
+  stopOperationMonitoring: (connectionId) => ipcRenderer.invoke('dgx:stop-monitoring', connectionId),
+  onOperationUpdate: (callback) => {
+    const handler = (event, data) => callback(data);
+    ipcRenderer.on('dgx:operation-update', handler);
+    return () => ipcRenderer.removeListener('dgx:operation-update', handler);
+  },
+
   // Project Watcher operations
   projectStartWatching: (projectId, fsPath) => ipcRenderer.invoke('project:start-watching', projectId, fsPath),
   projectStopWatching: (projectId) => ipcRenderer.invoke('project:stop-watching', projectId),
