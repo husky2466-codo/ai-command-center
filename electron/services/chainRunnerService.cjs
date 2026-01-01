@@ -23,6 +23,7 @@ class ChainRunnerService {
     this.promptListsPath = path.join(userDataPath, 'prompt-lists');
     this.sessionsPath = path.join(userDataPath, 'sessions');
     this.ragOutputsPath = path.join(userDataPath, 'rag-outputs');
+    this.recordingsPath = path.join(userDataPath, 'recordings');
 
     // Execution state
     this.currentRun = null;
@@ -838,6 +839,124 @@ Return ONLY a JSON object with these scores:
       };
     } catch (err) {
       logger.error('exportSession error', { id, error: err.message });
+      return { success: false, error: err.message };
+    }
+  }
+
+  /**
+   * Update session metadata (tags, notes, name)
+   */
+  async updateSession(id, updates) {
+    try {
+      const files = await fs.readdir(this.sessionsPath);
+      let sessionFilePath = null;
+      let sessionData = null;
+
+      for (const filename of files.filter(f => f.endsWith('.json'))) {
+        const filePath = path.join(this.sessionsPath, filename);
+        const content = await fs.readFile(filePath, 'utf8');
+        const data = JSON.parse(content);
+
+        if (data.id === id || filename.includes(id)) {
+          sessionFilePath = filePath;
+          sessionData = data;
+          break;
+        }
+      }
+
+      if (!sessionData || !sessionFilePath) {
+        return { success: false, error: 'Session not found' };
+      }
+
+      // Update metadata
+      if (updates.tags !== undefined) sessionData.tags = updates.tags;
+      if (updates.notes !== undefined) sessionData.notes = updates.notes;
+      if (updates.name !== undefined) sessionData.name = updates.name;
+      sessionData.updatedAt = new Date().toISOString();
+
+      await fs.writeFile(sessionFilePath, JSON.stringify(sessionData, null, 2), 'utf8');
+
+      logger.info('Updated session', { id, updates: Object.keys(updates) });
+
+      return { success: true, session: sessionData };
+    } catch (err) {
+      logger.error('updateSession error', { id, error: err.message });
+      return { success: false, error: err.message };
+    }
+  }
+
+  /**
+   * Delete a session and its associated recording
+   */
+  async deleteSession(id) {
+    try {
+      const files = await fs.readdir(this.sessionsPath);
+      let sessionFilePath = null;
+      let sessionFilename = null;
+
+      for (const filename of files.filter(f => f.endsWith('.json'))) {
+        const filePath = path.join(this.sessionsPath, filename);
+        const content = await fs.readFile(filePath, 'utf8');
+        const data = JSON.parse(content);
+
+        if (data.id === id || filename.includes(id)) {
+          sessionFilePath = filePath;
+          sessionFilename = filename;
+          break;
+        }
+      }
+
+      if (!sessionFilePath) {
+        return { success: false, error: 'Session not found' };
+      }
+
+      // Delete session file
+      await fs.unlink(sessionFilePath);
+
+      // Also delete associated recording if exists
+      const recordingBasename = sessionFilename.replace('.json', '.webm');
+      const recordingPath = path.join(this.recordingsPath, recordingBasename);
+      try {
+        await fs.access(recordingPath);
+        await fs.unlink(recordingPath);
+        logger.info('Deleted session recording', { filename: recordingBasename });
+      } catch (recordingErr) {
+        // Recording doesn't exist, that's fine
+      }
+
+      logger.info('Deleted session', { id, filename: sessionFilename });
+
+      return { success: true, deleted: true };
+    } catch (err) {
+      logger.error('deleteSession error', { id, error: err.message });
+      return { success: false, error: err.message };
+    }
+  }
+
+  /**
+   * Delete a prompt list
+   */
+  async deletePromptList(name) {
+    try {
+      const files = await fs.readdir(this.promptListsPath);
+      const matchingFile = files.find(f =>
+        f.startsWith('prompts_' + name) ||
+        f === name ||
+        f === `${name}.json`
+      );
+
+      if (!matchingFile) {
+        return { success: false, error: 'Prompt list not found' };
+      }
+
+      const filePath = path.join(this.promptListsPath, matchingFile);
+      await fs.unlink(filePath);
+
+      logger.info('Deleted prompt list', { filename: matchingFile });
+
+      return { success: true, deleted: matchingFile };
+    } catch (err) {
+      logger.error('deletePromptList error', { name, error: err.message });
       return { success: false, error: err.message };
     }
   }

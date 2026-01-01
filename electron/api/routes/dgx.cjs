@@ -12,6 +12,8 @@
  *   GET /api/dgx/status - Get active connection status
  *   GET /api/dgx/metrics/:id - Get GPU metrics
  *   GET /api/dgx/metrics/:id/history - Get metrics history
+ *   GET /api/dgx/metrics/:id/export - Export metrics as CSV or JSON
+ *   POST /api/dgx/metrics/cleanup - Cleanup old metrics
  *   POST /api/dgx/exec/:id - Execute command
  *
  * Project Management:
@@ -333,6 +335,84 @@ router.get('/metrics/:id/history', async (req, res) => {
       success: false,
       error: err.message
     });
+  }
+});
+
+// Export metrics as CSV or JSON
+router.get('/metrics/:id/export', async (req, res) => {
+  try {
+    const db = getDatabase();
+    const { format = 'json', hours = 24 } = req.query;
+    const connectionId = req.params.id;
+
+    const since = new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
+
+    const metrics = db.prepare(`
+      SELECT * FROM dgx_metrics
+      WHERE connection_id = ? AND recorded_at >= ?
+      ORDER BY recorded_at ASC
+    `).all(connectionId, since);
+
+    if (format === 'csv') {
+      // Generate CSV
+      if (metrics.length === 0) {
+        return res.status(200)
+          .header('Content-Type', 'text/csv')
+          .header('Content-Disposition', `attachment; filename="metrics-${connectionId}.csv"`)
+          .send('timestamp,gpu_utilization,memory_used_mb,memory_total_mb,temperature_c,power_watts\n');
+      }
+
+      const headers = ['recorded_at', 'gpu_utilization', 'memory_used_mb', 'memory_total_mb', 'temperature_c', 'power_watts'];
+      const csvRows = [headers.join(',')];
+
+      for (const row of metrics) {
+        csvRows.push(headers.map(h => row[h] ?? '').join(','));
+      }
+
+      res.status(200)
+        .header('Content-Type', 'text/csv')
+        .header('Content-Disposition', `attachment; filename="metrics-${connectionId}-${hours}h.csv"`)
+        .send(csvRows.join('\n'));
+    } else {
+      // JSON format (default)
+      res.json({
+        success: true,
+        data: {
+          connectionId,
+          hours: parseInt(hours),
+          count: metrics.length,
+          metrics
+        }
+      });
+    }
+  } catch (error) {
+    console.error('Export metrics error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Cleanup old metrics
+router.post('/metrics/cleanup', async (req, res) => {
+  try {
+    const db = getDatabase();
+    const { days = 30 } = req.body;
+
+    const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+
+    const result = db.prepare(`
+      DELETE FROM dgx_metrics WHERE recorded_at < ?
+    `).run(cutoff);
+
+    res.json({
+      success: true,
+      data: {
+        deleted: result.changes,
+        cutoffDate: cutoff
+      }
+    });
+  } catch (error) {
+    console.error('Cleanup metrics error:', error);
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 

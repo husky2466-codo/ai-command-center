@@ -354,4 +354,59 @@ router.get('/sessions/:id/export', async (req, res) => {
   }
 });
 
+// Update session metadata (tags, notes, name)
+router.put('/sessions/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { tags, notes, name } = req.body;
+
+    const service = await getService();
+    const result = await service.updateSession(id, { tags, notes, name });
+
+    if (!result.success) {
+      return res.status(404).json(result);
+    }
+    res.json(result);
+  } catch (err) {
+    console.error('[ChainRunner] PUT /sessions/:id error:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Delete session and associated recording
+router.delete('/sessions/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const service = await getService();
+    const result = await service.deleteSession(id);
+
+    if (!result.success) {
+      return res.status(404).json(result);
+    }
+    res.json(result);
+  } catch (err) {
+    console.error('[ChainRunner] DELETE /sessions/:id error:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Delete prompt list
+router.delete('/prompts/:name', async (req, res) => {
+  try {
+    const { name } = req.params;
+
+    const service = await getService();
+    const result = await service.deletePromptList(name);
+
+    if (!result.success) {
+      return res.status(404).json(result);
+    }
+    res.json(result);
+  } catch (err) {
+    console.error('[ChainRunner] DELETE /prompts/:name error:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 module.exports = router;

@@ -2,11 +2,16 @@
  * Email Routes
  * GET /api/emails - List emails
  * GET /api/emails/:id - Get single email
+ * GET /api/emails/:id/attachments - Get email attachments
  * POST /api/emails/send - Send email
  * POST /api/emails/search - Search emails
  * POST /api/emails/batch - Batch operations
  * POST /api/emails/:id/reply - Reply to email
  * POST /api/emails/:id/forward - Forward email
+ * POST /api/emails/:id/trash - Move email to trash
+ * POST /api/emails/:id/mark-read - Mark email as read/unread
+ * POST /api/emails/:id/star - Toggle star on email
+ * DELETE /api/emails/:id - Permanently delete email
  */
 
 const express = require('express');
@@ -460,6 +465,228 @@ router.post('/:id/forward', async (req, res) => {
         error: err.message
       });
     }
+    res.status(500).json({
+      success: false,
+      error: err.message
+    });
+  }
+});
+
+// Move email to trash
+router.post('/:id/trash', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { account_id } = req.body;
+
+    if (!account_id) {
+      return res.status(400).json({
+        success: false,
+        error: 'account_id is required'
+      });
+    }
+
+    const db = getDatabase();
+
+    // Get account
+    const account = db.prepare('SELECT * FROM connected_accounts WHERE id = ?').get(account_id);
+    if (!account) {
+      return res.status(404).json({
+        success: false,
+        error: 'Account not found'
+      });
+    }
+
+    const GoogleAccountService = require('../../services/googleAccountService.cjs');
+    const service = new GoogleAccountService(db, account.email);
+    await service.initialize();
+
+    await service.trashEmail(account_id, id);
+
+    res.json({
+      success: true,
+      data: { trashed: true }
+    });
+  } catch (err) {
+    console.error('[API Server] POST /api/emails/:id/trash error:', err.message);
+    res.status(500).json({
+      success: false,
+      error: err.message
+    });
+  }
+});
+
+// Mark email as read/unread
+router.post('/:id/mark-read', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { account_id, read = true } = req.body;
+
+    if (!account_id) {
+      return res.status(400).json({
+        success: false,
+        error: 'account_id is required'
+      });
+    }
+
+    const db = getDatabase();
+
+    // Get account
+    const account = db.prepare('SELECT * FROM connected_accounts WHERE id = ?').get(account_id);
+    if (!account) {
+      return res.status(404).json({
+        success: false,
+        error: 'Account not found'
+      });
+    }
+
+    const GoogleAccountService = require('../../services/googleAccountService.cjs');
+    const service = new GoogleAccountService(db, account.email);
+    await service.initialize();
+
+    await service.markAsRead(account_id, id, read);
+
+    res.json({
+      success: true,
+      data: { marked: true, read }
+    });
+  } catch (err) {
+    console.error('[API Server] POST /api/emails/:id/mark-read error:', err.message);
+    res.status(500).json({
+      success: false,
+      error: err.message
+    });
+  }
+});
+
+// Toggle star on email
+router.post('/:id/star', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { account_id, starred } = req.body;
+
+    if (!account_id) {
+      return res.status(400).json({
+        success: false,
+        error: 'account_id is required'
+      });
+    }
+
+    if (typeof starred !== 'boolean') {
+      return res.status(400).json({
+        success: false,
+        error: 'starred (boolean) is required'
+      });
+    }
+
+    const db = getDatabase();
+
+    // Get account
+    const account = db.prepare('SELECT * FROM connected_accounts WHERE id = ?').get(account_id);
+    if (!account) {
+      return res.status(404).json({
+        success: false,
+        error: 'Account not found'
+      });
+    }
+
+    const GoogleAccountService = require('../../services/googleAccountService.cjs');
+    const service = new GoogleAccountService(db, account.email);
+    await service.initialize();
+
+    await service.toggleStar(account_id, id, starred);
+
+    res.json({
+      success: true,
+      data: { starred }
+    });
+  } catch (err) {
+    console.error('[API Server] POST /api/emails/:id/star error:', err.message);
+    res.status(500).json({
+      success: false,
+      error: err.message
+    });
+  }
+});
+
+// Permanently delete email
+router.delete('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { account_id } = req.query;
+
+    if (!account_id) {
+      return res.status(400).json({
+        success: false,
+        error: 'account_id query param is required'
+      });
+    }
+
+    const db = getDatabase();
+
+    // Get account
+    const account = db.prepare('SELECT * FROM connected_accounts WHERE id = ?').get(account_id);
+    if (!account) {
+      return res.status(404).json({
+        success: false,
+        error: 'Account not found'
+      });
+    }
+
+    const GoogleAccountService = require('../../services/googleAccountService.cjs');
+    const service = new GoogleAccountService(db, account.email);
+    await service.initialize();
+
+    await service.deleteEmail(account_id, id);
+
+    res.json({
+      success: true,
+      data: { deleted: true }
+    });
+  } catch (err) {
+    console.error('[API Server] DELETE /api/emails/:id error:', err.message);
+    res.status(500).json({
+      success: false,
+      error: err.message
+    });
+  }
+});
+
+// Get email attachments
+router.get('/:id/attachments', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { account_id } = req.query;
+
+    if (!account_id) {
+      return res.status(400).json({
+        success: false,
+        error: 'account_id query param is required'
+      });
+    }
+
+    const db = getDatabase();
+
+    // Get account
+    const account = db.prepare('SELECT * FROM connected_accounts WHERE id = ?').get(account_id);
+    if (!account) {
+      return res.status(404).json({
+        success: false,
+        error: 'Account not found'
+      });
+    }
+
+    const GoogleAccountService = require('../../services/googleAccountService.cjs');
+    const service = new GoogleAccountService(db, account.email);
+    await service.initialize();
+
+    const attachments = await service.getAttachments(account_id, id);
+
+    res.json({
+      success: true,
+      data: attachments
+    });
+  } catch (err) {
+    console.error('[API Server] GET /api/emails/:id/attachments error:', err.message);
     res.status(500).json({
       success: false,
       error: err.message
