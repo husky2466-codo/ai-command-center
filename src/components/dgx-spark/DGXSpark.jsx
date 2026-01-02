@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import './DGXSpark.css';
 import { dgxService } from '@/services/DGXService.js';
+import { useProjectRefresh } from '@/hooks/useProjectRefresh';
 import MetricsPanel from './components/MetricsPanel.jsx';
 import OperationsTab from './operations/OperationsTab.jsx';
 
@@ -27,6 +28,12 @@ export default function DGXSpark({ apiKeys }) {
   const [connectionStatus, setConnectionStatus] = useState('disconnected');
   const [connections, setConnections] = useState([]);
   const [activeConnection, setActiveConnection] = useState(null);
+
+  // Hook for project refresh daemon (for DGX projects)
+  useProjectRefresh(() => {
+    console.log('[DGXSpark] Refresh triggered by daemon');
+    loadConnections();
+  });
 
   // Load connections on mount
   useEffect(() => {

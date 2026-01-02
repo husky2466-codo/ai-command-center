@@ -216,6 +216,25 @@ export async function generatePrompts(options) {
       const data = await response.json();
       promptsText = data.message?.content || '';
 
+    } else if (provider === 'claude-cli') {
+      // Claude CLI API call
+      if (!window.electronAPI?.claudeCli?.query) {
+        return { success: false, error: 'Claude CLI is not available' };
+      }
+
+      const cliResult = await window.electronAPI.claudeCli.query(
+        `You are a training data generator. Follow instructions precisely and return valid JSON.\n\n${systemPrompt}`,
+        {
+          maxTokens: 4000
+        }
+      );
+
+      if (!cliResult.success) {
+        return { success: false, error: `Claude CLI error: ${cliResult.error}` };
+      }
+
+      promptsText = cliResult.content || '';
+
     } else {
       return { success: false, error: `Unsupported provider: ${provider}` };
     }

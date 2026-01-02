@@ -189,6 +189,20 @@
   gap: 4px;
 }
 
+.cli-badge {
+  color: #ffd700;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-left: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(255, 215, 0, 0.1);
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 215, 0, 0.3);
+}
+
 .cr-add-agent {
   width: calc(50% - 8px);
   min-width: 400px;

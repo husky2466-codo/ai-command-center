@@ -11,6 +11,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   writeFile: (filePath, content) => ipcRenderer.invoke('write-file', filePath, content),
   writeFileBinary: (filePath, base64Data) => ipcRenderer.invoke('write-file-binary', filePath, base64Data),
   listDirectory: (dirPath) => ipcRenderer.invoke('list-directory', dirPath),
+  listDirectoryDetailed: (dirPath, options) => ipcRenderer.invoke('list-directory-detailed', dirPath, options),
   fileExists: (filePath) => ipcRenderer.invoke('file-exists', filePath),
   getFileStats: (filePath) => ipcRenderer.invoke('get-file-stats', filePath),
   deleteFile: (filePath) => ipcRenderer.invoke('delete-file', filePath),
@@ -236,6 +237,21 @@ contextBridge.exposeInMainWorld('electronAPI', {
     return () => ipcRenderer.removeListener('project:progress-updated', handler);
   },
 
+  // Project Refresh Daemon operations
+  onProjectsRefreshed: (callback) => {
+    const handler = (event, data) => callback(data);
+    ipcRenderer.on('projects:refreshed', handler);
+    return () => ipcRenderer.removeListener('projects:refreshed', handler);
+  },
+  onProjectsRefreshError: (callback) => {
+    const handler = (event, data) => callback(data);
+    ipcRenderer.on('projects:refresh-error', handler);
+    return () => ipcRenderer.removeListener('projects:refresh-error', handler);
+  },
+  projectsManualRefresh: () => ipcRenderer.invoke('projects:manual-refresh'),
+  projectsDaemonStatus: () => ipcRenderer.invoke('projects:daemon-status'),
+  projectsSetRefreshInterval: (intervalMs) => ipcRenderer.invoke('projects:set-refresh-interval', intervalMs),
+
   // DGX Metrics Exports
   dgxExportsList: (connectionId) => ipcRenderer.invoke('dgx-exports:list', connectionId),
   dgxExportsRead: (filename) => ipcRenderer.invoke('dgx-exports:read', filename),
@@ -246,5 +262,23 @@ contextBridge.exposeInMainWorld('electronAPI', {
     const handler = (event, data) => callback(data);
     ipcRenderer.on('dgx-exports:changed', handler);
     return () => ipcRenderer.removeListener('dgx-exports:changed', handler);
+  },
+
+  // Claude CLI operations
+  claudeCli: {
+    check: () => ipcRenderer.invoke('claude-cli:check'),
+    getStatus: () => ipcRenderer.invoke('claude-cli:get-status'),
+    checkOAuth: () => ipcRenderer.invoke('claude-cli:check-oauth'),
+    query: (prompt, options) => ipcRenderer.invoke('claude-cli:query', prompt, options),
+    queryWithImage: (prompt, imageBase64, options) => ipcRenderer.invoke('claude-cli:query-with-image', prompt, imageBase64, options),
+    stream: (prompt, options) => ipcRenderer.invoke('claude-cli:stream', prompt, options),
+    onStreamChunk: (callback) => {
+      const handler = (event, chunk) => callback(chunk);
+      ipcRenderer.on('claude-cli:stream-chunk', handler);
+      return () => ipcRenderer.removeListener('claude-cli:stream-chunk', handler);
+    },
+    removeStreamChunkListener: () => ipcRenderer.removeAllListeners('claude-cli:stream-chunk'),
+    cancel: (requestId) => ipcRenderer.invoke('claude-cli:cancel', requestId),
+    setupToken: () => ipcRenderer.invoke('claude-cli:setup-token'),
   },
 });

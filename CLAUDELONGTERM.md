@@ -6,6 +6,35 @@ Architecture decisions, patterns, and feature plans that persist across sessions
 
 ## Recent Updates
 
+### 2026-01-01 - Project Refresh Daemon & DGX Operations
+
+**Project Refresh System Architecture:**
+- `projectRefreshDaemon.cjs` - EventEmitter-based 60s polling daemon
+- `useProjectRefresh.js` - React hook for component subscriptions
+- Complements existing `projectWatcher.cjs` (chokidar file events)
+- Daemon handles catch-up sync, watcher handles real-time updates
+- Projects with status `completed` excluded from auto-refresh (preserves manual 100%)
+
+**`/init` Command Pattern:**
+- Standardized project structure for ACC tracking
+- Milestones: README.md, package.json, src/, tests/, build/, .git/
+- Auto-registers with ACC API on creation
+- Templates in `.claude/templates/` for consistency
+
+**DGX Operations Status Sync:**
+- Auto-sync on `GET /api/dgx/operations` - verifies PIDs are still alive
+- Manual sync via `POST /api/dgx/operations/sync`
+- `WHERE command IS NOT NULL` filter excludes discovered system processes
+- Only shows ACC-created operations (have command field)
+
+**Progress Calculation Flexibility:**
+- Source detection: src/, source/, lib/, app/, electron/, OR code files in root
+- Reduced test penalty: 10% → 5%
+- Minimum floor: 60% if README + package.json + .git + build exists
+- `/api/projects/:id/complete` endpoint for manual completion
+
+---
+
 ### 2025-12-31 - Multi-Calendar Sync & Major Fixes
 
 **Multi-Calendar Architecture:**

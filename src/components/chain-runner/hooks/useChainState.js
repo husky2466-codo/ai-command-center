@@ -17,6 +17,10 @@ const PROVIDERS = {
     name: 'Ollama',
     models: ['mistral', 'llama3.2', 'phi3', 'deepseek-coder:6.7b'],
   },
+  'claude-cli': {
+    name: 'Claude CLI (Subscription)',
+    models: ['default'], // CLI uses default model, no selection needed
+  },
 };
 
 const DEFAULT_AGENT = {

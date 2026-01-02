@@ -12,6 +12,8 @@ export default function VisionApp({ apiKeys }) {
   const [autoMode, setAutoMode] = useState(false);
   const [autoInterval, setAutoInterval] = useState(10);
   const [frameCount, setFrameCount] = useState(0);
+  const [usingSubscription, setUsingSubscription] = useState(false);
+  const [cliAvailable, setCliAvailable] = useState(false);
 
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
@@ -22,11 +24,32 @@ export default function VisionApp({ apiKeys }) {
 
   useEffect(() => {
     loadCameras();
+    checkCliAvailability();
     return () => {
       stopCamera();
       if (frameSaveTimerRef.current) clearInterval(frameSaveTimerRef.current);
     };
   }, []);
+
+  const checkCliAvailability = async () => {
+    if (!window.electronAPI?.claudeCli) {
+      setCliAvailable(false);
+      return;
+    }
+
+    try {
+      const cliStatus = await window.electronAPI.claudeCli.check();
+      if (cliStatus.available) {
+        const oauthStatus = await window.electronAPI.claudeCli.checkOAuth();
+        setCliAvailable(oauthStatus.authenticated);
+      } else {
+        setCliAvailable(false);
+      }
+    } catch (err) {
+      console.error('Error checking CLI availability:', err);
+      setCliAvailable(false);
+    }
+  };
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -279,43 +302,73 @@ export default function VisionApp({ apiKeys }) {
     const userMessage = { role: 'user', content: prompt, image: imageData };
     setMessages(prev => [...prev, userMessage]);
 
+    let assistantText = '';
+    let usedCli = false;
+
     try {
       const base64 = imageData.split(',')[1];
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': apiKeys.ANTHROPIC_API_KEY,
-          'anthropic-version': '2023-06-01',
-          'anthropic-dangerous-direct-browser-access': 'true',
-        },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 1024,
-          messages: [{
-            role: 'user',
-            content: [
-              {
-                type: 'image',
-                source: { type: 'base64', media_type: 'image/jpeg', data: base64 }
-              },
-              { type: 'text', text: prompt }
-            ]
-          }]
-        })
-      });
 
-      const data = await response.json();
-      const assistantText = data.content?.[0]?.text || 'No response';
+      // Try CLI first if available
+      if (cliAvailable && window.electronAPI?.claudeCli) {
+        try {
+          const result = await window.electronAPI.claudeCli.queryWithImage(
+            prompt,
+            base64,
+            { maxTokens: 1024 }
+          );
+
+          if (result.success) {
+            assistantText = result.content;
+            usedCli = true;
+            setUsingSubscription(true);
+          }
+        } catch (cliErr) {
+          console.warn('CLI query failed, falling back to API:', cliErr);
+          // Fall through to API
+        }
+      }
+
+      // Fallback to direct API if CLI didn't work
+      if (!usedCli) {
+        const response = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': apiKeys.ANTHROPIC_API_KEY,
+            'anthropic-version': '2023-06-01',
+            'anthropic-dangerous-direct-browser-access': 'true',
+          },
+          body: JSON.stringify({
+            model: 'claude-sonnet-4-20250514',
+            max_tokens: 1024,
+            messages: [{
+              role: 'user',
+              content: [
+                {
+                  type: 'image',
+                  source: { type: 'base64', media_type: 'image/jpeg', data: base64 }
+                },
+                { type: 'text', text: prompt }
+              ]
+            }]
+          })
+        });
+
+        const data = await response.json();
+        assistantText = data.content?.[0]?.text || 'No response';
+        setUsingSubscription(false);
+      }
+
       setMessages(prev => [...prev, { role: 'assistant', content: assistantText }]);
 
       // Log the query
       await logVisionQuery(prompt, assistantText, imageData);
     } catch (err) {
-      console.error('API Error:', err);
+      console.error('Vision Error:', err);
       const errorMsg = `Error: ${err.message}`;
       setMessages(prev => [...prev, { role: 'assistant', content: errorMsg }]);
       await logVisionQuery(prompt, errorMsg, imageData);
+      setUsingSubscription(false);
     } finally {
       setLoading(false);
     }
@@ -352,6 +405,17 @@ export default function VisionApp({ apiKeys }) {
           >
             {cameraOn ? 'Stop Camera' : 'Start Camera'}
           </button>
+          <div className="mode-indicator">
+            {cliAvailable ? (
+              <span className="badge subscription" title="Using Claude CLI subscription">
+                Using Subscription
+              </span>
+            ) : (
+              <span className="badge api" title="Using direct API">
+                Using API
+              </span>
+            )}
+          </div>
         </div>
 
         <div className="camera-feed">

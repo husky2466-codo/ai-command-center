@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import SubscriptionSettings from './SubscriptionSettings';
 import './Settings.css';
 
 export default function Settings({ apiKeys }) {
@@ -209,6 +210,9 @@ export default function Settings({ apiKeys }) {
       </div>
 
       <div className="settings-content">
+        {/* Claude Subscription Section */}
+        <SubscriptionSettings />
+
         {/* Debug Mode Section */}
         <section className="settings-section">
           <h3>Debug Mode</h3>

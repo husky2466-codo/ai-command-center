@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { FolderKanban, ChevronDown, ChevronRight, Edit2, Trash2, Calendar, Target, Eye, RefreshCw } from 'lucide-react';
+import { FolderKanban, ChevronDown, ChevronRight, Edit2, Trash2, Calendar, Target, Eye, RefreshCw, Folder, ListTodo } from 'lucide-react';
 import { projectService } from '../../services/ProjectService';
 import { PROJECT_STATUS } from '../../constants/energyTypes';
 import Card from '../shared/Card';
 import Badge from '../shared/Badge';
+import FolderBrowser from './FolderBrowser';
 
 export default function ProjectsView({
   projects,
@@ -11,10 +12,12 @@ export default function ProjectsView({
   selectedSpace,
   onProjectClick,
   onEditProject,
-  onDeleteProject
+  onDeleteProject,
+  onViewTasks
 }) {
   const [projectsWithDetails, setProjectsWithDetails] = useState([]);
   const [groupedProjects, setGroupedProjects] = useState({});
+  const [expandedProjects, setExpandedProjects] = useState(new Set());
   const [expandedGroups, setExpandedGroups] = useState({
     active_focus: true,
     on_deck: true,
@@ -65,6 +68,18 @@ export default function ProjectsView({
     }));
   };
 
+  const toggleProject = (projectId) => {
+    setExpandedProjects(prev => {
+      const next = new Set(prev);
+      if (next.has(projectId)) {
+        next.delete(projectId);
+      } else {
+        next.add(projectId);
+      }
+      return next;
+    });
+  };
+
   if (loading) {
     return <div className="projects-view-loading">Loading projects...</div>;
   }
@@ -111,6 +126,8 @@ export default function ProjectsView({
                   <ProjectCard
                     key={project.id}
                     project={project}
+                    isExpanded={expandedProjects.has(project.id)}
+                    onToggle={() => toggleProject(project.id)}
                     onClick={() => onProjectClick(project)}
                     onEdit={(e) => {
                       e.stopPropagation();
@@ -120,6 +137,7 @@ export default function ProjectsView({
                       e.stopPropagation();
                       onDeleteProject(project.id);
                     }}
+                    onViewTasks={() => onViewTasks(project)}
                   />
                 ))}
               </div>
@@ -131,7 +149,7 @@ export default function ProjectsView({
   );
 }
 
-function ProjectCard({ project, onClick, onEdit, onDelete }) {
+function ProjectCard({ project, isExpanded, onToggle, onClick, onEdit, onDelete, onViewTasks }) {
   const [isWatching, setIsWatching] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const progressPercent = Math.round(project.progress || 0);
@@ -167,50 +185,61 @@ function ProjectCard({ project, onClick, onEdit, onDelete }) {
     <Card
       className="project-card"
       hoverable
-      onClick={onClick}
     >
       <div className="project-card-content">
         {/* Header */}
         <div className="project-card-header">
-          <div className="project-card-title-row">
-            <h3 className="project-card-title">{project.name}</h3>
-            <div className="project-card-actions">
-              {/* Watching indicator */}
-              {isWatching && (
-                <div className="project-watching-indicator" title="File watcher active">
-                  <Eye size={14} className="watching-icon" />
-                </div>
-              )}
+          {project.fs_path && (
+            <button
+              className={`project-expand-toggle ${isExpanded ? 'expanded' : ''}`}
+              onClick={(e) => { e.stopPropagation(); onToggle(); }}
+              title="Toggle folder tree"
+            >
+              <ChevronRight size={16} className="chevron" />
+            </button>
+          )}
+          <Folder size={18} className="project-icon" />
+          <span className="project-name">{project.name}</span>
+          <div className="project-header-actions">
+            <button className="project-tasks-btn" onClick={() => onViewTasks()}>
+              <ListTodo size={14} />
+              Tasks
+            </button>
 
-              {/* Manual sync button */}
-              {project.fs_path && (
-                <button
-                  className={`project-action-btn ${syncing ? 'syncing' : ''}`}
-                  onClick={handleSyncProgress}
-                  title="Sync progress from filesystem"
-                  disabled={syncing}
-                >
-                  <RefreshCw size={16} className={syncing ? 'spinning' : ''} />
-                </button>
-              )}
+            {/* Watching indicator */}
+            {isWatching && (
+              <div className="project-watching-indicator" title="File watcher active">
+                <Eye size={14} className="watching-icon" />
+              </div>
+            )}
 
+            {/* Manual sync button */}
+            {project.fs_path && (
               <button
-                className="project-action-btn"
-                onClick={onEdit}
-                title="Edit project"
+                className={`project-action-btn ${syncing ? 'syncing' : ''}`}
+                onClick={handleSyncProgress}
+                title="Sync progress from filesystem"
+                disabled={syncing}
               >
-                <Edit2 size={16} />
+                <RefreshCw size={16} className={syncing ? 'spinning' : ''} />
               </button>
-              <button
-                className="project-action-btn project-delete-btn"
-                onClick={onDelete}
-                title="Delete project"
-              >
-                <Trash2 size={16} />
-              </button>
-            </div>
+            )}
+
+            <button
+              className="project-action-btn"
+              onClick={onEdit}
+              title="Edit project"
+            >
+              <Edit2 size={16} />
+            </button>
+            <button
+              className="project-action-btn project-delete-btn"
+              onClick={onDelete}
+              title="Delete project"
+            >
+              <Trash2 size={16} />
+            </button>
           </div>
-
           {/* Space Badge */}
           {project.space && (
             <Badge
@@ -269,6 +298,11 @@ function ProjectCard({ project, onClick, onEdit, onDelete }) {
             <span className="next-action-label">Next:</span>
             <span className="next-action-text">{project.next_action}</span>
           </div>
+        )}
+
+        {/* Folder Browser */}
+        {isExpanded && project.fs_path && (
+          <FolderBrowser fsPath={project.fs_path} projectId={project.id} />
         )}
       </div>
     </Card>

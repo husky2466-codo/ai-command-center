@@ -267,6 +267,25 @@ export function useChainExecution({
       return data.message?.content || 'No response';
     }
 
+    if (provider === 'claude-cli') {
+      // Use Claude CLI via Electron API
+      if (!window.electronAPI?.claudeCli?.query) {
+        throw new Error('Claude CLI is not available');
+      }
+
+      const cliResult = await window.electronAPI.claudeCli.query(
+        `${taskSpec}\n\n${input}`,
+        {
+          maxTokens: 4096
+        }
+      );
+
+      if (cliResult.success) {
+        return cliResult.content || 'No response';
+      }
+      throw new Error(cliResult.error || 'Claude CLI query failed');
+    }
+
     return 'Unknown provider';
   };
 

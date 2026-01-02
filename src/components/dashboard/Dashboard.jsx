@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { RefreshCw, LayoutDashboard } from 'lucide-react';
 import { dashboardService } from '../../services/dashboardService.js';
+import { useProjectRefresh } from '../../hooks/useProjectRefresh';
 import Button from '../shared/Button';
 import GoodMorningWidget from './widgets/GoodMorningWidget';
 import TodaysFocusWidget from './widgets/TodaysFocusWidget';
@@ -20,6 +21,12 @@ function Dashboard({ apiKeys }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
+
+  // Hook for project refresh daemon
+  useProjectRefresh(() => {
+    console.log('[Dashboard] Refresh triggered by daemon');
+    loadDashboard();
+  });
 
   // Load dashboard data on mount
   useEffect(() => {

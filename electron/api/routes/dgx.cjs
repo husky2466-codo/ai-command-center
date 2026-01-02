@@ -31,11 +31,12 @@
  *   DELETE /api/dgx/jobs/:id - Delete job
  *
  * Operations (ComfyUI, Services, etc.):
- *   GET /api/dgx/operations - List operations
+ *   GET /api/dgx/operations - List operations (auto-syncs status by default)
  *   GET /api/dgx/operations/:id - Get operation
  *   POST /api/dgx/operations - Create operation
  *   PUT /api/dgx/operations/:id - Update operation
  *   POST /api/dgx/operations/:id/progress - Quick progress update
+ *   POST /api/dgx/operations/sync - Sync all operations status (bulk cleanup)
  *   POST /api/dgx/operations/:id/kill - Kill/terminate running operation
  *   GET /api/dgx/operations/:id/logs - Get operation logs
  *   POST /api/dgx/operations/:id/restart - Restart operation
@@ -841,9 +842,11 @@ router.delete('/jobs/:id', async (req, res) => {
 router.get('/operations', async (req, res) => {
   try {
     const db = getDatabase();
-    const { connection_id, type, status, limit = 100 } = req.query;
+    const { connection_id, type, status, limit = 100, sync_status = 'true' } = req.query;
 
-    let sql = 'SELECT * FROM dgx_operations WHERE 1=1';
+    // Only return operations created by this ACC instance (have a command)
+    // This filters out any discovered system processes from other users
+    let sql = 'SELECT * FROM dgx_operations WHERE command IS NOT NULL';
     const params = [];
 
     if (connection_id) {
@@ -866,6 +869,36 @@ router.get('/operations', async (req, res) => {
 
     const operations = db.prepare(sql).all(...params);
 
+    // Auto-sync status for running operations (unless explicitly disabled)
+    if (sync_status === 'true') {
+      for (const op of operations) {
+        if (op.status === 'running' && op.pid && op.connection_id) {
+          try {
+            // Check if process is still alive
+            const isAlive = await checkProcessAlive(op.connection_id, op.pid);
+
+            if (!isAlive) {
+              // Process has died, update to stopped
+              const now = new Date().toISOString();
+              db.prepare(`
+                UPDATE dgx_operations
+                SET status = 'stopped', completed_at = ?
+                WHERE id = ?
+              `).run(now, op.id);
+
+              // Update the operation in our result set
+              op.status = 'stopped';
+              op.completed_at = now;
+
+              console.log(`[DGX Operations] Synced stale operation ${op.name} (PID ${op.pid}) to 'stopped'`);
+            }
+          } catch (error) {
+            console.error(`[DGX Operations] Error checking process ${op.pid}:`, error.message);
+          }
+        }
+      }
+    }
+
     res.json({
       success: true,
       data: operations
@@ -877,6 +910,29 @@ router.get('/operations', async (req, res) => {
     });
   }
 });
+
+/**
+ * Helper: Check if a process is still alive on DGX
+ * @param {string} connectionId - DGX connection ID
+ * @param {number} pid - Process ID
+ * @returns {Promise<boolean>} True if process is alive
+ */
+async function checkProcessAlive(connectionId, pid) {
+  try {
+    const result = await dgxManager.executeCommand(connectionId, `ps -p ${pid} -o pid= 2>/dev/null`);
+
+    if (!result.success) {
+      return false;
+    }
+
+    // If command succeeded and returned the PID, process is alive
+    const output = result.data.stdout.trim();
+    return output.includes(String(pid));
+  } catch (error) {
+    console.error('[checkProcessAlive] Error:', error.message);
+    return false;
+  }
+}
 
 // Get specific operation
 router.get('/operations/:id', async (req, res) => {
@@ -1147,9 +1203,9 @@ router.post('/operations/:id/kill', async (req, res) => {
       // Update operation status
       db.prepare(`
         UPDATE dgx_operations
-        SET status = 'cancelled', completed_at = ?, updated_at = ?
+        SET status = 'cancelled', completed_at = ?
         WHERE id = ?
-      `).run(new Date().toISOString(), new Date().toISOString(), req.params.id);
+      `).run(new Date().toISOString(), req.params.id);
 
       res.json({ success: true, data: { killed: true, pid: operation.pid, signal } });
     } else {
@@ -1196,6 +1252,63 @@ router.get('/operations/:id/logs', async (req, res) => {
   }
 });
 
+// Sync all operations status (bulk cleanup)
+router.post('/operations/sync', async (req, res) => {
+  try {
+    const db = getDatabase();
+    const { connection_id } = req.body;
+
+    if (!connection_id) {
+      return res.status(400).json({
+        success: false,
+        error: 'connection_id is required'
+      });
+    }
+
+    // Get all running operations for this connection
+    const runningOps = db.prepare(`
+      SELECT * FROM dgx_operations
+      WHERE connection_id = ? AND status = 'running' AND pid IS NOT NULL
+    `).all(connection_id);
+
+    let synced = 0;
+    let errors = 0;
+
+    for (const op of runningOps) {
+      try {
+        const isAlive = await checkProcessAlive(connection_id, op.pid);
+
+        if (!isAlive) {
+          const now = new Date().toISOString();
+          db.prepare(`
+            UPDATE dgx_operations
+            SET status = 'stopped', completed_at = ?
+            WHERE id = ?
+          `).run(now, op.id);
+
+          synced++;
+          console.log(`[DGX Sync] Updated stale operation ${op.name} (PID ${op.pid}) to 'stopped'`);
+        }
+      } catch (error) {
+        console.error(`[DGX Sync] Error checking PID ${op.pid}:`, error.message);
+        errors++;
+      }
+    }
+
+    res.json({
+      success: true,
+      data: {
+        checked: runningOps.length,
+        synced,
+        errors
+      }
+    });
+  } catch (error) {
+    console.error('Sync operations error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // Restart operation
 router.post('/operations/:id/restart', async (req, res) => {
   try {
@@ -1216,27 +1329,50 @@ router.post('/operations/:id/restart', async (req, res) => {
       return res.status(400).json({ success: false, error: 'No active DGX connection' });
     }
 
+    console.log(`[DGX] Restarting operation ${operation.name} (${req.params.id})`);
+    console.log(`[DGX] Command: ${operation.command}`);
+
     // If running, kill first
     if (operation.status === 'running' && operation.pid) {
-      await dgxManager.executeCommand(connection.id, `kill ${operation.pid}`);
+      console.log(`[DGX] Killing existing PID ${operation.pid}`);
+      const killResult = await dgxManager.executeCommand(connection.id, `kill ${operation.pid}`);
+      console.log(`[DGX] Kill result:`, killResult);
+      // Wait a moment for process to die
+      await new Promise(resolve => setTimeout(resolve, 500));
     }
 
-    // Re-run the command with nohup
+    // Re-run the command with setsid + nohup for proper detachment
     const logFile = operation.log_file || `/tmp/${operation.id}.log`;
-    const cmd = `nohup ${operation.command} > ${logFile} 2>&1 & echo $!`;
+    const cmd = `setsid nohup ${operation.command} > ${logFile} 2>&1 < /dev/null & sleep 0.3 && pgrep -nf "${operation.command.substring(0, 40)}"`;
+
+    console.log(`[DGX] Executing restart command: ${cmd}`);
     const result = await dgxManager.executeCommand(connection.id, cmd);
+    console.log(`[DGX] Restart command result:`, result);
 
     if (result.success) {
-      const newPid = parseInt(result.data.stdout.trim());
+      const stdout = result.data.stdout.trim();
+      console.log(`[DGX] Command stdout: "${stdout}"`);
+
+      if (!stdout || isNaN(parseInt(stdout))) {
+        return res.status(500).json({
+          success: false,
+          error: 'Failed to get new PID',
+          details: { stdout, stderr: result.data.stderr }
+        });
+      }
+
+      const newPid = parseInt(stdout);
+      console.log(`[DGX] New PID: ${newPid}`);
 
       db.prepare(`
         UPDATE dgx_operations
-        SET status = 'running', pid = ?, started_at = ?, completed_at = NULL, updated_at = ?
+        SET status = 'running', pid = ?, started_at = ?, completed_at = NULL
         WHERE id = ?
-      `).run(newPid, new Date().toISOString(), new Date().toISOString(), req.params.id);
+      `).run(newPid, new Date().toISOString(), req.params.id);
 
       res.json({ success: true, data: { restarted: true, pid: newPid } });
     } else {
+      console.error('[DGX] Restart command failed:', result.error);
       res.status(500).json({ success: false, error: result.error || 'Failed to restart' });
     }
   } catch (error) {

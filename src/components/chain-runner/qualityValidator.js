@@ -182,6 +182,25 @@ export async function validateQAPair(question, answer, provider, apiKey, model, 
       const data = await response.json();
       scoreText = data.message?.content || '';
 
+    } else if (provider === 'claude-cli') {
+      // Claude CLI API call
+      if (!window.electronAPI?.claudeCli?.query) {
+        return { success: false, error: 'Claude CLI is not available' };
+      }
+
+      const cliResult = await window.electronAPI.claudeCli.query(
+        `You are a quality evaluator. Follow instructions precisely and return valid JSON.\n\n${validationPrompt}`,
+        {
+          maxTokens: 1000
+        }
+      );
+
+      if (!cliResult.success) {
+        return { success: false, error: `Claude CLI error: ${cliResult.error}` };
+      }
+
+      scoreText = cliResult.content || '';
+
     } else {
       return { success: false, error: `Unsupported provider: ${provider}` };
     }

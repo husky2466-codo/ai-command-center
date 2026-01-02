@@ -65,17 +65,19 @@ export default function ChainPromptGenerator({
               </select>
             </div>
 
-            <div className="pg-field">
-              <label>Model</label>
-              <select
-                value={generatorModel}
-                onChange={(e) => setGeneratorModel(e.target.value)}
-              >
-                {PROVIDERS[generatorProvider].models.map(m => (
-                  <option key={m} value={m}>{m}</option>
-                ))}
-              </select>
-            </div>
+            {generatorProvider !== 'claude-cli' && (
+              <div className="pg-field">
+                <label>Model</label>
+                <select
+                  value={generatorModel}
+                  onChange={(e) => setGeneratorModel(e.target.value)}
+                >
+                  {PROVIDERS[generatorProvider].models.map(m => (
+                    <option key={m} value={m}>{m}</option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             <div className="pg-field pg-field-small">
               <label>Count</label>

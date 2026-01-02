@@ -42,17 +42,28 @@ const ChatApp = ({ apiKeys }) => {
   const [selectedModel, setSelectedModel] = useState('claude-sonnet-4-20250514');
   const [showSettings, setShowSettings] = useState(false);
 
+  // CLI state
+  const [cliAvailable, setCliAvailable] = useState(false);
+  const [usingSubscription, setUsingSubscription] = useState(false);
+
   // Refs
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
   const textareaRef = useRef(null);
 
-  // Initialize chat service
+  // Initialize chat service and check CLI
   useEffect(() => {
     if (apiKeys?.ANTHROPIC_API_KEY) {
       chatService.initialize(apiKeys.ANTHROPIC_API_KEY);
     }
+    checkCliAvailability();
   }, [apiKeys]);
+
+  // Check CLI availability
+  const checkCliAvailability = async () => {
+    const available = await chatService.checkCliAvailability();
+    setCliAvailable(available);
+  };
 
   // Auto-scroll to bottom
   useEffect(() => {
@@ -209,7 +220,7 @@ const ChatApp = ({ apiKeys }) => {
       // Send to Claude with streaming
       let fullResponse = '';
 
-      await chatService.sendMessage(
+      const result = await chatService.sendMessage(
         userMessage,
         messages,
         memories,
@@ -240,12 +251,17 @@ const ChatApp = ({ apiKeys }) => {
         },
         // onError
         (error) => {
-          console.error('Claude API error:', error);
+          console.error('Claude error:', error);
           setIsLoading(false);
           setStreamingText('');
           alert(`Error: ${error.message}`);
         }
       );
+
+      // Track if subscription was used
+      if (result?.usedCli) {
+        setUsingSubscription(true);
+      }
 
     } catch (error) {
       console.error('Failed to send message:', error);
@@ -337,6 +353,16 @@ const ChatApp = ({ apiKeys }) => {
         <div className="chat-header-left">
           <Brain className="chat-icon" size={24} />
           <h1>Chat with Claude</h1>
+          {cliAvailable && (
+            <span className="mode-badge subscription">
+              Subscription
+            </span>
+          )}
+          {!cliAvailable && (
+            <span className="mode-badge api">
+              API
+            </span>
+          )}
         </div>
         <div className="chat-header-actions">
           <button

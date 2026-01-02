@@ -168,12 +168,16 @@ async function calculateMetrics(fsPath) {
     hasSrcDir: false,
     hasBuildDir: false,
     hasGit: false,
+    hasCodeFiles: false,
     lastActivity: null,
     size: 0
   };
 
   try {
     const entries = await fs.readdir(fsPath, { withFileTypes: true, recursive: false });
+
+    // Track code file extensions for source detection
+    const codeExtensions = ['.js', '.ts', '.jsx', '.tsx', '.py', '.rs', '.go', '.java', '.c', '.cpp', '.h', '.hpp'];
 
     for (const entry of entries) {
       const fullPath = path.join(fsPath, entry.name);
@@ -185,7 +189,8 @@ async function calculateMetrics(fsPath) {
         const lowerName = entry.name.toLowerCase();
         if (lowerName === 'tests' || lowerName === 'test' || lowerName === '__tests__') {
           metrics.hasTestsDir = true;
-        } else if (lowerName === 'src' || lowerName === 'source') {
+        } else if (lowerName === 'src' || lowerName === 'source' || lowerName === 'lib' ||
+                   lowerName === 'app' || lowerName === 'electron') {
           metrics.hasSrcDir = true;
         } else if (lowerName === 'build' || lowerName === 'dist' || lowerName === 'release') {
           metrics.hasBuildDir = true;
@@ -196,9 +201,14 @@ async function calculateMetrics(fsPath) {
         metrics.totalFiles++;
 
         // Track file extensions
-        const ext = path.extname(entry.name);
+        const ext = path.extname(entry.name).toLowerCase();
         if (ext) {
           metrics.filesByExtension[ext] = (metrics.filesByExtension[ext] || 0) + 1;
+
+          // Check if it's a code file
+          if (codeExtensions.includes(ext)) {
+            metrics.hasCodeFiles = true;
+          }
         }
 
         // Check for milestone files
@@ -235,16 +245,32 @@ async function calculateMetrics(fsPath) {
 function calculateProgress(metrics, recentActivity = []) {
   let progress = 0;
 
-  // Milestone-based progress (70% weight)
+  // Milestone-based progress (75% weight)
+  // Documentation
   if (metrics.hasReadme) progress += 0.10;
+
+  // Project structure
   if (metrics.hasPackageJson) progress += 0.10;
-  if (metrics.hasTestsDir) progress += 0.10;
-  if (metrics.hasSrcDir && metrics.totalFiles > 0) progress += 0.15;
+
+  // Source code (flexible detection)
+  // Either has src/ directory OR has code files in root
+  const hasSourceCode = metrics.hasSrcDir || (metrics.hasCodeFiles && metrics.totalFiles > 0);
+  if (hasSourceCode) progress += 0.15;
+
+  // Build output (indicates completion)
   if (metrics.hasBuildDir) progress += 0.15;
+
+  // Version control
   if (metrics.hasGit) progress += 0.10;
 
-  // Activity-based progress (30% weight)
-  // Recent activity (last 7 days) adds up to 0.30
+  // Tests (nice-to-have, reduced weight)
+  if (metrics.hasTestsDir) progress += 0.05;
+
+  // Code files bonus (if no src/ directory but has code in root)
+  if (!metrics.hasSrcDir && metrics.hasCodeFiles) progress += 0.10;
+
+  // Activity-based progress (25% weight)
+  // Recent activity (last 7 days) adds up to 0.25
   const sevenDaysAgo = new Date();
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
@@ -253,14 +279,20 @@ function calculateProgress(metrics, recentActivity = []) {
   );
 
   if (recentChanges.length > 0) {
-    // Scale activity: 1-10 changes = +0.05, 11-30 = +0.15, 31+ = +0.30
+    // Scale activity: 1-10 changes = +0.05, 11-30 = +0.15, 31+ = +0.25
     if (recentChanges.length >= 31) {
-      progress += 0.30;
+      progress += 0.25;
     } else if (recentChanges.length >= 11) {
       progress += 0.15;
     } else {
       progress += 0.05;
     }
+  }
+
+  // Minimum progress floor for completed projects
+  // If has README + package.json + .git + build output → minimum 60%
+  if (metrics.hasReadme && metrics.hasPackageJson && metrics.hasGit && metrics.hasBuildDir) {
+    progress = Math.max(progress, 0.60);
   }
 
   // Cap at 1.0

@@ -50,6 +50,45 @@ router.get('/', async (req, res) => {
   }
 });
 
+// Mark project as complete (MUST be before /:id to avoid route conflict)
+router.post('/:id/complete', async (req, res) => {
+  try {
+    const db = getDatabase();
+    const { id } = req.params;
+
+    // Check if project exists
+    const existing = db.prepare('SELECT * FROM projects WHERE id = ?').get(id);
+    if (!existing) {
+      return res.status(404).json({
+        success: false,
+        error: 'Project not found'
+      });
+    }
+
+    const now = new Date().toISOString();
+
+    // Set status to completed and progress to 1.0 (100%)
+    db.prepare(`
+      UPDATE projects
+      SET status = 'completed', progress = 1.0, updated_at = ?
+      WHERE id = ?
+    `).run(now, id);
+
+    const project = db.prepare('SELECT * FROM projects WHERE id = ?').get(id);
+
+    res.json({
+      success: true,
+      data: project,
+      message: 'Project marked as complete'
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      error: err.message
+    });
+  }
+});
+
 // Get single project with tasks
 router.get('/:id', async (req, res) => {
   try {

@@ -240,14 +240,94 @@ class MemoryExtractionService {
   }
 
   /**
-   * Extract memories from a conversation chunk using AI
-   * @param {string} conversationChunk - Formatted conversation
-   * @param {string} apiKey - Anthropic API key
-   * @returns {Promise<Array>} Extracted memories
+   * Check if Claude CLI is available and authenticated
+   * @returns {Promise<Object>} { available: boolean, authenticated: boolean, method: string }
    */
-  async extractMemoriesFromChunk(conversationChunk, apiKey) {
-    const systemPrompt = buildExtractionPrompt();
+  async checkCliAvailability() {
+    if (!window.electronAPI?.claudeCli) {
+      return { available: false, authenticated: false, method: 'none' };
+    }
 
+    try {
+      const cliStatus = await window.electronAPI.claudeCli.check();
+      if (!cliStatus.available) {
+        return { available: false, authenticated: false, method: 'none' };
+      }
+
+      const oauthStatus = await window.electronAPI.claudeCli.checkOAuth();
+      return {
+        available: true,
+        authenticated: oauthStatus.authenticated,
+        method: oauthStatus.authenticated ? 'cli' : 'none'
+      };
+    } catch (error) {
+      console.warn('CLI availability check failed:', error);
+      return { available: false, authenticated: false, method: 'none' };
+    }
+  }
+
+  /**
+   * Extract memories using Claude CLI
+   * @param {string} conversationChunk - Formatted conversation
+   * @param {string} systemPrompt - System prompt for extraction
+   * @returns {Promise<Object>} { success: boolean, memories: Array, method: string, error?: string }
+   */
+  async extractWithCli(conversationChunk, systemPrompt) {
+    try {
+      const userPrompt = `${systemPrompt}\n\nAnalyze this conversation and extract memories:\n\n${conversationChunk}`;
+
+      const result = await window.electronAPI.claudeCli.query(userPrompt, {
+        maxTokens: 4000,
+        model: 'claude-haiku-4-20250514' // Fast and cost-effective
+      });
+
+      if (!result.success) {
+        return {
+          success: false,
+          memories: [],
+          method: 'cli',
+          error: result.error || 'CLI query failed'
+        };
+      }
+
+      // Parse JSON response
+      const text = result.content;
+      const jsonMatch = text.match(/\[[\s\S]*\]/);
+      if (!jsonMatch) {
+        console.warn('No JSON array found in CLI response');
+        return {
+          success: true,
+          memories: [],
+          method: 'cli'
+        };
+      }
+
+      const memories = JSON.parse(jsonMatch[0]);
+      return {
+        success: true,
+        memories: Array.isArray(memories) ? memories : [],
+        method: 'cli'
+      };
+
+    } catch (error) {
+      console.error('CLI extraction failed:', error);
+      return {
+        success: false,
+        memories: [],
+        method: 'cli',
+        error: error.message
+      };
+    }
+  }
+
+  /**
+   * Extract memories using direct API
+   * @param {string} conversationChunk - Formatted conversation
+   * @param {string} systemPrompt - System prompt for extraction
+   * @param {string} apiKey - Anthropic API key
+   * @returns {Promise<Object>} { success: boolean, memories: Array, method: string, error?: string }
+   */
+  async extractWithApi(conversationChunk, systemPrompt, apiKey) {
     try {
       const response = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
@@ -271,7 +351,12 @@ class MemoryExtractionService {
       });
 
       if (!response.ok) {
-        throw new Error(`Claude API error: ${response.status}`);
+        return {
+          success: false,
+          memories: [],
+          method: 'api',
+          error: `API error: ${response.status}`
+        };
       }
 
       const data = await response.json();
@@ -280,15 +365,72 @@ class MemoryExtractionService {
       // Parse JSON response
       const jsonMatch = text.match(/\[[\s\S]*\]/);
       if (!jsonMatch) {
-        console.warn('No JSON array found in response');
-        return [];
+        console.warn('No JSON array found in API response');
+        return {
+          success: true,
+          memories: [],
+          method: 'api'
+        };
       }
 
       const memories = JSON.parse(jsonMatch[0]);
-      return Array.isArray(memories) ? memories : [];
+      return {
+        success: true,
+        memories: Array.isArray(memories) ? memories : [],
+        method: 'api'
+      };
 
     } catch (error) {
-      console.error('Memory extraction failed:', error);
+      console.error('API extraction failed:', error);
+      return {
+        success: false,
+        memories: [],
+        method: 'api',
+        error: error.message
+      };
+    }
+  }
+
+  /**
+   * Extract memories from a conversation chunk using AI
+   * Tries Claude CLI first, falls back to direct API
+   * @param {string} conversationChunk - Formatted conversation
+   * @param {string} apiKey - Anthropic API key (used for fallback)
+   * @returns {Promise<Array>} Extracted memories
+   */
+  async extractMemoriesFromChunk(conversationChunk, apiKey) {
+    const systemPrompt = buildExtractionPrompt();
+    let result;
+
+    // Try CLI first
+    const cliStatus = await this.checkCliAvailability();
+    if (cliStatus.authenticated) {
+      console.log('Using Claude CLI for memory extraction');
+      result = await this.extractWithCli(conversationChunk, systemPrompt);
+
+      if (result.success) {
+        console.log(`CLI extraction successful: ${result.memories.length} memories found`);
+        return result.memories;
+      } else {
+        console.warn('CLI extraction failed, falling back to API:', result.error);
+      }
+    } else {
+      console.log('Claude CLI not available, using direct API');
+    }
+
+    // Fallback to direct API
+    if (!apiKey) {
+      console.error('No API key provided and CLI unavailable');
+      return [];
+    }
+
+    result = await this.extractWithApi(conversationChunk, systemPrompt, apiKey);
+
+    if (result.success) {
+      console.log(`API extraction successful: ${result.memories.length} memories found`);
+      return result.memories;
+    } else {
+      console.error('Both CLI and API extraction failed:', result.error);
       return [];
     }
   }

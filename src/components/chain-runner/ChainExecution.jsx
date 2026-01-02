@@ -115,17 +115,19 @@ export default function ChainExecution({
                 </select>
               </div>
 
-              <div className="validator-field">
-                <label>Model</label>
-                <select
-                  value={validatorModel}
-                  onChange={(e) => setValidatorModel(e.target.value)}
-                >
-                  {PROVIDERS[validatorProvider].models.map(m => (
-                    <option key={m} value={m}>{m}</option>
-                  ))}
-                </select>
-              </div>
+              {validatorProvider !== 'claude-cli' && (
+                <div className="validator-field">
+                  <label>Model</label>
+                  <select
+                    value={validatorModel}
+                    onChange={(e) => setValidatorModel(e.target.value)}
+                  >
+                    {PROVIDERS[validatorProvider].models.map(m => (
+                      <option key={m} value={m}>{m}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               <div className="validator-field">
                 <label>Min Quality</label>

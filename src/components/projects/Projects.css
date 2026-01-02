@@ -948,3 +948,94 @@
     transform: rotate(360deg);
   }
 }
+
+/* ============================================================================
+   FOLDER BROWSER INTEGRATION
+   ============================================================================ */
+
+/* Folder Browser Toggle */
+.project-expand-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+  margin-right: 4px;
+}
+
+.project-expand-toggle:hover {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+}
+
+.project-expand-toggle .chevron {
+  transition: transform 0.2s ease;
+}
+
+.project-expand-toggle.expanded .chevron {
+  transform: rotate(90deg);
+}
+
+/* Tasks button */
+.project-tasks-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  background: var(--module-projects, #8b5cf6);
+  border: none;
+  border-radius: 4px;
+  color: white;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  opacity: 0;
+}
+
+.project-card:hover .project-tasks-btn {
+  opacity: 1;
+}
+
+.project-tasks-btn:hover {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+}
+
+/* Project icon */
+.project-icon {
+  flex-shrink: 0;
+  color: var(--module-projects);
+}
+
+/* Project name */
+.project-name {
+  flex: 1;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* Project card header layout */
+.project-card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.project-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+}

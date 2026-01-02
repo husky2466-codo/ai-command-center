@@ -119,6 +119,28 @@ class ChatService {
   }
 
   /**
+   * Check if Claude CLI is available and authenticated
+   * @returns {Promise<boolean>} True if CLI can be used
+   */
+  async checkCliAvailability() {
+    if (!window.electronAPI?.claudeCli) {
+      return false;
+    }
+
+    try {
+      const cliStatus = await window.electronAPI.claudeCli.check();
+      if (cliStatus.available) {
+        const oauthStatus = await window.electronAPI.claudeCli.checkOAuth();
+        return oauthStatus.authenticated;
+      }
+      return false;
+    } catch (err) {
+      console.warn('Error checking CLI availability:', err);
+      return false;
+    }
+  }
+
+  /**
    * Send a message to Claude with streaming response
    * @param {string} message - User message
    * @param {ChatMessage[]} [conversationHistory=[]] - Previous messages
@@ -126,46 +148,147 @@ class ChatService {
    * @param {(chunk: string) => void} onChunk - Callback for streaming chunks
    * @param {(text: string) => void} onComplete - Callback when complete
    * @param {(error: Error) => void} onError - Callback for errors
-   * @returns {Promise<{content: string, model: string, role: string, usage: {input_tokens: number, output_tokens: number, total_tokens: number}}>} Response object with full text and metadata
+   * @param {boolean} [preferCli=true] - Prefer CLI over API if available
+   * @returns {Promise<{content: string, model: string, role: string, usage: {input_tokens: number, output_tokens: number, total_tokens: number}, usedCli: boolean}>} Response object with full text and metadata
    */
-  async sendMessage(message, conversationHistory = [], relevantMemories = [], onChunk, onComplete, onError) {
-    if (!this.apiKey) {
-      throw new Error('API key not initialized. Call initialize() first.');
-    }
-
+  async sendMessage(message, conversationHistory = [], relevantMemories = [], onChunk, onComplete, onError, preferCli = true) {
     try {
       // Build system prompt with memory context
       const systemPrompt = this._buildSystemPrompt(relevantMemories);
 
-      // Build messages array
-      const messages = [
-        ...conversationHistory.map(msg => ({
-          role: msg.role,
-          content: msg.content
-        })),
-        {
-          role: 'user',
-          content: message
+      // Build conversation context for CLI
+      let contextPrompt = systemPrompt;
+      if (conversationHistory.length > 0) {
+        contextPrompt += '\n\n## Conversation History\n\n';
+        for (const msg of conversationHistory) {
+          contextPrompt += `**${msg.role === 'user' ? 'User' : 'Assistant'}**: ${msg.content}\n\n`;
         }
-      ];
+      }
 
-      // Call Claude API with streaming
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': this.apiKey,
-          'anthropic-version': '2023-06-01',
-          'anthropic-dangerous-direct-browser-access': 'true'
-        },
-        body: JSON.stringify({
-          model: this.model,
-          max_tokens: this.maxTokens,
-          system: systemPrompt,
-          messages: messages,
-          stream: true
-        })
+      // Try Claude CLI first if preferred and available
+      if (preferCli) {
+        const cliAvailable = await this.checkCliAvailability();
+
+        if (cliAvailable && window.electronAPI?.claudeCli) {
+          try {
+            return await this._sendViaCli(message, contextPrompt, onChunk, onComplete);
+          } catch (cliErr) {
+            console.warn('CLI request failed, falling back to API:', cliErr);
+            // Fall through to API
+          }
+        }
+      }
+
+      // Fallback to direct API
+      if (!this.apiKey) {
+        throw new Error('API key not initialized and CLI unavailable. Call initialize() first.');
+      }
+
+      return await this._sendViaApi(message, conversationHistory, systemPrompt, onChunk, onComplete);
+
+    } catch (error) {
+      console.error('Chat error:', error);
+      if (onError) {
+        onError(error);
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Send message via Claude CLI with streaming
+   * @private
+   */
+  async _sendViaCli(message, systemPrompt, onChunk, onComplete) {
+    let fullText = '';
+    let streamCleanup = null;
+
+    try {
+      // Setup stream listener
+      streamCleanup = window.electronAPI.claudeCli.onStreamChunk((chunk) => {
+        fullText += chunk;
+        if (onChunk) {
+          onChunk(chunk);
+        }
       });
+
+      // Start streaming
+      const result = await window.electronAPI.claudeCli.stream(
+        `${systemPrompt}\n\n**User**: ${message}`,
+        {
+          maxTokens: this.maxTokens,
+          model: this.model
+        }
+      );
+
+      if (!result.success) {
+        throw new Error(result.error || 'CLI streaming failed');
+      }
+
+      // Cleanup listener
+      if (streamCleanup) {
+        streamCleanup();
+      }
+
+      if (onComplete) {
+        onComplete(fullText);
+      }
+
+      return {
+        content: fullText,
+        model: this.model,
+        role: 'assistant',
+        usage: {
+          input_tokens: 0, // CLI doesn't provide token counts
+          output_tokens: 0,
+          total_tokens: 0
+        },
+        usedCli: true
+      };
+
+    } catch (error) {
+      // Cleanup on error
+      if (streamCleanup) {
+        streamCleanup();
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Send message via direct Anthropic API with streaming
+   * @private
+   */
+  async _sendViaApi(message, conversationHistory, systemPrompt, onChunk, onComplete) {
+    // Build messages array
+    const messages = [
+      ...conversationHistory.map(msg => ({
+        role: msg.role,
+        content: msg.content
+      })),
+      {
+        role: 'user',
+        content: message
+      }
+    ];
+
+    // Call Claude API with streaming
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': this.apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: this.model,
+        max_tokens: this.maxTokens,
+        system: systemPrompt,
+        messages: messages,
+        stream: true
+      })
+    });
 
       if (!response.ok) {
         const error = await response.json();
@@ -248,16 +371,9 @@ class ChatService {
           input_tokens: inputTokens,
           output_tokens: outputTokens,
           total_tokens: inputTokens + outputTokens
-        }
+        },
+        usedCli: false
       };
-
-    } catch (error) {
-      console.error('Chat API error:', error);
-      if (onError) {
-        onError(error);
-      }
-      throw error;
-    }
   }
 
   /**

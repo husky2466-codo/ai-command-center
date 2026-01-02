@@ -43,19 +43,24 @@ export default function ChainConfig({
                   <option key={key} value={key}>{val.name}</option>
                 ))}
               </select>
+              {agent.provider === 'claude-cli' && (
+                <span className="cli-badge">✨ Free with Pro/Max</span>
+              )}
             </div>
 
-            <div className="config-row">
-              <label>Model</label>
-              <select
-                value={agent.model}
-                onChange={(e) => updateAgent(agent.id, { model: e.target.value })}
-              >
-                {PROVIDERS[agent.provider].models.map(m => (
-                  <option key={m} value={m}>{m}</option>
-                ))}
-              </select>
-            </div>
+            {agent.provider !== 'claude-cli' && (
+              <div className="config-row">
+                <label>Model</label>
+                <select
+                  value={agent.model}
+                  onChange={(e) => updateAgent(agent.id, { model: e.target.value })}
+                >
+                  {PROVIDERS[agent.provider].models.map(m => (
+                    <option key={m} value={m}>{m}</option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             {agent.provider === 'ollama' && (
               <div className="config-row endpoint-selector">

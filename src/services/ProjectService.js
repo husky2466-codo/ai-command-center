@@ -739,6 +739,60 @@ class ProjectService {
 
     return window.electronAPI.onProjectProgressUpdated(callback);
   }
+
+  /**
+   * Manually trigger a project refresh
+   * @returns {Promise<void>}
+   */
+  async manualRefresh() {
+    if (!window.electronAPI?.projectsManualRefresh) {
+      console.warn('[ProjectService] Manual refresh not available (not running in Electron)');
+      return;
+    }
+
+    return window.electronAPI.projectsManualRefresh();
+  }
+
+  /**
+   * Get refresh daemon status
+   * @returns {Promise<Object>} Status object with running, interval, lastRefresh, nextRefresh
+   */
+  async getDaemonStatus() {
+    if (!window.electronAPI?.projectsDaemonStatus) {
+      console.warn('[ProjectService] Daemon status not available (not running in Electron)');
+      return { running: false };
+    }
+
+    return window.electronAPI.projectsDaemonStatus();
+  }
+
+  /**
+   * Set refresh interval
+   * @param {number} intervalMs - Interval in milliseconds
+   * @returns {Promise<void>}
+   */
+  async setRefreshInterval(intervalMs) {
+    if (!window.electronAPI?.projectsSetRefreshInterval) {
+      console.warn('[ProjectService] Set refresh interval not available (not running in Electron)');
+      return;
+    }
+
+    return window.electronAPI.projectsSetRefreshInterval(intervalMs);
+  }
+
+  /**
+   * Subscribe to refresh events
+   * @param {function} callback - Callback function to receive refresh events
+   * @returns {function} Cleanup function to unsubscribe
+   */
+  onProjectsRefreshed(callback) {
+    if (!window.electronAPI?.onProjectsRefreshed) {
+      console.warn('[ProjectService] Refresh events not available (not running in Electron)');
+      return () => {};
+    }
+
+    return window.electronAPI.onProjectsRefreshed(callback);
+  }
 }
 
 // Export singleton instance

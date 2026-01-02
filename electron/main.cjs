@@ -15,6 +15,8 @@ const { startApiServer, stopApiServer, getServerStatus } = require('./api/server
 const dgxManager = require('./services/dgxManager.cjs');
 const projectWatcher = require('./services/projectWatcher.cjs');
 const operationMonitor = require('./services/operationMonitor.cjs');
+const projectRefreshDaemon = require('./services/projectRefreshDaemon.cjs');
+const claudeCliService = require('./services/claudeCliService.cjs');
 
 // Setup error handlers for main process
 setupErrorHandlers();
@@ -328,6 +330,22 @@ app.whenReady().then(async () => {
     }
   });
 
+  // Subscribe to project refresh daemon events and forward to renderer
+  projectRefreshDaemon.on('projects-refreshed', (data) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('projects:refreshed', data);
+    }
+  });
+
+  projectRefreshDaemon.on('refresh-error', (data) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('projects:refresh-error', data);
+    }
+  });
+
+  // Start the refresh daemon (60 seconds interval)
+  projectRefreshDaemon.start(60000);
+
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       createWindow();
@@ -351,6 +369,14 @@ app.on('window-all-closed', () => {
 app.on('before-quit', async () => {
   logger.info('Application shutting down');
 
+  // Stop project refresh daemon
+  try {
+    projectRefreshDaemon.stop();
+    logger.info('Project refresh daemon stopped');
+  } catch (err) {
+    logger.error('Error stopping project refresh daemon', { error: err.message });
+  }
+
   // Stop all operation monitors
   try {
     operationMonitor.stopAll();
@@ -373,6 +399,14 @@ app.on('before-quit', async () => {
     logger.info('All DGX connections closed');
   } catch (err) {
     logger.error('Error disconnecting DGX', { error: err.message });
+  }
+
+  // Cleanup Claude CLI service
+  try {
+    await claudeCliService.cleanup();
+    logger.info('Claude CLI service cleanup complete');
+  } catch (err) {
+    logger.error('Error cleaning up Claude CLI service', { error: err.message });
   }
 
   // Stop API server
@@ -444,6 +478,49 @@ ipcMain.handle('list-directory', async (event, dirPath) => {
   try {
     const files = fs.readdirSync(dirPath);
     return { success: true, files };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// List directory contents with detailed info for folder browser
+ipcMain.handle('list-directory-detailed', async (event, dirPath, options = {}) => {
+  try {
+    const { maxItems = 500 } = options;
+
+    // Validate path exists
+    if (!fs.existsSync(dirPath)) {
+      return { success: false, error: 'Directory not found' };
+    }
+
+    const stats = fs.statSync(dirPath);
+    if (!stats.isDirectory()) {
+      return { success: false, error: 'Path is not a directory' };
+    }
+
+    const entries = fs.readdirSync(dirPath, { withFileTypes: true });
+
+    let items = entries
+      .filter(entry => !entry.isSymbolicLink())  // Skip symlinks only
+      .slice(0, maxItems)
+      .map(entry => ({
+        name: entry.name,
+        isDirectory: entry.isDirectory(),
+        path: path.join(dirPath, entry.name)
+      }));
+
+    // Sort: folders first, then alphabetically
+    items.sort((a, b) => {
+      if (a.isDirectory !== b.isDirectory) return b.isDirectory - a.isDirectory;
+      return a.name.localeCompare(b.name);
+    });
+
+    return {
+      success: true,
+      items,
+      truncated: entries.length > maxItems,
+      totalCount: entries.length
+    };
   } catch (error) {
     return { success: false, error: error.message };
   }
@@ -2333,6 +2410,43 @@ ipcMain.handle('project:get-watched-projects', async () => {
   }
 });
 
+// ============================================================================
+// PROJECT REFRESH DAEMON IPC HANDLERS
+// ============================================================================
+
+// Manual refresh of all projects
+ipcMain.handle('projects:manual-refresh', async () => {
+  try {
+    await projectRefreshDaemon.refresh();
+    return { success: true };
+  } catch (error) {
+    console.error('[Main] projects:manual-refresh error:', error.message);
+    return { success: false, error: error.message };
+  }
+});
+
+// Get daemon status
+ipcMain.handle('projects:daemon-status', async () => {
+  try {
+    const status = projectRefreshDaemon.getStatus();
+    return { success: true, data: status };
+  } catch (error) {
+    console.error('[Main] projects:daemon-status error:', error.message);
+    return { success: false, error: error.message };
+  }
+});
+
+// Set refresh interval
+ipcMain.handle('projects:set-refresh-interval', async (event, intervalMs) => {
+  try {
+    projectRefreshDaemon.setInterval(intervalMs);
+    return { success: true };
+  } catch (error) {
+    console.error('[Main] projects:set-refresh-interval error:', error.message);
+    return { success: false, error: error.message };
+  }
+});
+
 // =========================================================================
 // DGX METRICS EXPORT FILE HANDLERS
 // =========================================================================
@@ -2468,4 +2582,55 @@ ipcMain.handle('dgx-exports:stop-watching', async () => {
   } catch (err) {
     return { success: false, error: err.message };
   }
+});
+
+// =========================================================================
+// CLAUDE CLI SERVICE HANDLERS
+// =========================================================================
+
+// Check if Claude CLI is available
+ipcMain.handle('claude-cli:check', async () => {
+  return await claudeCliService.checkAvailability();
+});
+
+// Get Claude CLI status
+ipcMain.handle('claude-cli:get-status', async () => {
+  return claudeCliService.getStatus();
+});
+
+// Check OAuth status
+ipcMain.handle('claude-cli:check-oauth', async () => {
+  return await claudeCliService.checkOAuthStatus();
+});
+
+// Query Claude CLI
+ipcMain.handle('claude-cli:query', async (event, prompt, options) => {
+  return await claudeCliService.query(prompt, options);
+});
+
+// Query with image
+ipcMain.handle('claude-cli:query-with-image', async (event, prompt, imageBase64, options) => {
+  return await claudeCliService.queryWithImage(prompt, imageBase64, options);
+});
+
+// Stream query
+ipcMain.handle('claude-cli:stream', async (event, prompt, options) => {
+  // For streaming, we'll send chunks via webContents
+  const result = await claudeCliService.streamQuery(prompt, options, (chunk) => {
+    event.sender.send('claude-cli:stream-chunk', chunk);
+  });
+  return result;
+});
+
+// Cancel request
+ipcMain.handle('claude-cli:cancel', async (event, requestId) => {
+  return claudeCliService.cancel(requestId);
+});
+
+// Setup authentication token
+ipcMain.handle('claude-cli:setup-token', async () => {
+  // Open terminal for user to run claude auth login
+  const { exec } = require('child_process');
+  exec('start cmd /k claude auth login');
+  return { started: true };
 });

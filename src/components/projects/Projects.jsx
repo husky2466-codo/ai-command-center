@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { FolderKanban, LayoutGrid, List, CheckSquare, Plus, FolderInput } from 'lucide-react';
 import { projectService } from '../../services/ProjectService';
+import { useProjectRefresh } from '../../hooks/useProjectRefresh';
 import LifeView from './LifeView';
 import ProjectsView from './ProjectsView';
 import NowView from './NowView';
@@ -32,6 +33,12 @@ export default function Projects() {
   const [taskModalOpen, setTaskModalOpen] = useState(false);
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
+
+  // Hook for project refresh daemon
+  useProjectRefresh(() => {
+    console.log('[Projects] Refresh triggered by daemon');
+    loadData();
+  });
 
   useEffect(() => {
     loadData();
@@ -84,6 +91,11 @@ export default function Projects() {
   };
 
   const handleProjectClick = (project) => {
+    setSelectedProject(project);
+    setCurrentView(VIEWS.NOW);
+  };
+
+  const handleViewTasks = (project) => {
     setSelectedProject(project);
     setCurrentView(VIEWS.NOW);
   };
@@ -344,6 +356,7 @@ export default function Projects() {
             onProjectClick={handleProjectClick}
             onEditProject={handleEditProject}
             onDeleteProject={handleDeleteProject}
+            onViewTasks={handleViewTasks}
           />
         )}
 

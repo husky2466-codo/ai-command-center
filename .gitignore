@@ -100,3 +100,6 @@ frames*/
 # yarn.lock
 # pnpm-lock.yaml
 nul
+
+# Auto Claude data directory
+.auto-claude/
