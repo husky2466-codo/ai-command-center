@@ -12,9 +12,11 @@ export default function PaneContainer({ paneId, APPS, apiKeys, canSplit, showClo
     setActiveTabInPane,
     splitPane,
     closePane,
-    closeAllTabsInPane
+    closeAllTabsInPane,
+    moveTab
   } = useLayout();
 
+  const [dragOverPaneId, setDragOverPaneId] = React.useState(null);
   const pane = getPane(paneId);
 
   if (!pane) {
@@ -29,11 +31,11 @@ export default function PaneContainer({ paneId, APPS, apiKeys, canSplit, showClo
   };
 
   const handleSplitRight = () => {
-    splitPane('horizontal');
+    splitPane(paneId, 'horizontal');
   };
 
   const handleSplitDown = () => {
-    splitPane('vertical');
+    splitPane(paneId, 'vertical');
   };
 
   const handleClosePane = () => {
@@ -42,6 +44,51 @@ export default function PaneContainer({ paneId, APPS, apiKeys, canSplit, showClo
 
   const handleCloseAllTabs = () => {
     closeAllTabsInPane(paneId);
+  };
+
+  // Drag and drop handlers
+  const handleDragStart = (e, tabId, fromPaneId) => {
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('application/json', JSON.stringify({
+      tabId,
+      fromPaneId
+    }));
+    // Add visual feedback
+    e.currentTarget.style.opacity = '0.4';
+  };
+
+  const handleDragEnd = (e) => {
+    e.currentTarget.style.opacity = '1';
+    setDragOverPaneId(null);
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverPaneId(paneId);
+  };
+
+  const handleDragLeave = (e) => {
+    // Only clear if leaving the tabs-container itself, not child elements
+    if (e.currentTarget === e.target) {
+      setDragOverPaneId(null);
+    }
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setDragOverPaneId(null);
+
+    try {
+      const data = JSON.parse(e.dataTransfer.getData('application/json'));
+      const { tabId, fromPaneId } = data;
+
+      if (tabId && fromPaneId && moveTab) {
+        moveTab(fromPaneId, paneId, tabId);
+      }
+    } catch (error) {
+      console.error('Failed to parse drag data:', error);
+    }
   };
 
   return (
@@ -61,7 +108,12 @@ export default function PaneContainer({ paneId, APPS, apiKeys, canSplit, showClo
           </button>
         )}
 
-        <div className="tabs-container">
+        <div
+          className={`tabs-container ${dragOverPaneId === paneId ? 'drag-over' : ''}`}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+        >
           {tabs.map(tab => {
             // Look up missing properties from APPS if tab was restored from localStorage
             const appInfo = APPS[tab.appId];
@@ -73,6 +125,9 @@ export default function PaneContainer({ paneId, APPS, apiKeys, canSplit, showClo
                 key={tab.id}
                 className={`tab ${tab.id === activeTabId ? 'active' : ''}`}
                 style={{ '--tab-accent': tabAccent }}
+                draggable="true"
+                onDragStart={(e) => handleDragStart(e, tab.id, paneId)}
+                onDragEnd={handleDragEnd}
               >
                 <button
                   className="tab-button"
@@ -129,7 +184,8 @@ export default function PaneContainer({ paneId, APPS, apiKeys, canSplit, showClo
 
       {/* Content Area */}
       <div className="pane-content">
-        {!activeTabId ? (
+        {/* Always render all tabs, hide inactive ones with CSS */}
+        {tabs.length === 0 ? (
           <div className="pane-home">
             <h2>Select an app</h2>
             <div className="app-grid">
@@ -146,36 +202,39 @@ export default function PaneContainer({ paneId, APPS, apiKeys, canSplit, showClo
             </div>
           </div>
         ) : (
-          tabs.map(tab => {
-            // Look up component from APPS if tab was restored from localStorage
-            const AppComponent = tab.component || APPS[tab.appId]?.component;
+          <>
+            {tabs.map(tab => {
+              // Look up component from APPS if tab was restored from localStorage
+              const AppComponent = tab.component || APPS[tab.appId]?.component;
+              const isActive = tab.id === activeTabId;
 
-            if (!AppComponent) {
+              if (!AppComponent) {
+                return (
+                  <div
+                    key={tab.id}
+                    className="tab-content"
+                    style={{ display: isActive ? 'flex' : 'none' }}
+                  >
+                    <div style={{ padding: '20px', color: 'var(--text-dim)' }}>
+                      Component not found for app: {tab.appId}
+                    </div>
+                  </div>
+                );
+              }
+
               return (
                 <div
                   key={tab.id}
                   className="tab-content"
-                  style={{ display: tab.id === activeTabId ? 'flex' : 'none' }}
+                  style={{ display: isActive ? 'flex' : 'none' }}
                 >
-                  <div style={{ padding: '20px', color: 'var(--text-dim)' }}>
-                    Component not found for app: {tab.appId}
-                  </div>
+                  <ErrorBoundary>
+                    <AppComponent apiKeys={apiKeys} instanceId={tab.id} />
+                  </ErrorBoundary>
                 </div>
               );
-            }
-
-            return (
-              <div
-                key={tab.id}
-                className="tab-content"
-                style={{ display: tab.id === activeTabId ? 'flex' : 'none' }}
-              >
-                <ErrorBoundary key={tab.id}>
-                  <AppComponent apiKeys={apiKeys} instanceId={tab.id} />
-                </ErrorBoundary>
-              </div>
-            );
-          })
+            })}
+          </>
         )}
       </div>
     </div>

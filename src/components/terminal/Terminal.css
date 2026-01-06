@@ -8,6 +8,7 @@
   display: flex;
   flex-direction: column;
   min-width: 400px;
+  height: 100%;
   transition: flex 0.3s ease;
 }
 
@@ -90,6 +91,9 @@
   padding: 10px;
   overflow: hidden;
   background: var(--bg-primary);
+  min-height: 200px;
+  height: 100%;
+  position: relative;
 }
 
 /* Override xterm.js defaults to match app theme */

@@ -120,19 +120,36 @@ export function LayoutProvider({ children }) {
     });
   }, []);
 
-  // Split pane
-  const splitPane = useCallback((direction) => {
-    if (panes.length >= 2) {
-      console.warn('Maximum 2 panes supported');
+  // Split pane - now supports splitting any existing pane
+  const splitPane = useCallback((paneId, direction) => {
+    const maxPanes = 6; // Reasonable limit for usability
+    if (panes.length >= maxPanes) {
+      console.warn(`Maximum ${maxPanes} panes supported`);
       return;
     }
 
-    setPanes(prevPanes => [
-      ...prevPanes,
-      { id: `pane-${Date.now()}`, tabs: [], activeTabId: null }
-    ]);
-    setSplitDirection(direction);
-  }, [panes.length]);
+    // Find the pane to split
+    const paneIndex = panes.findIndex(p => p.id === paneId);
+    if (paneIndex === -1) {
+      console.error('Pane not found:', paneId);
+      return;
+    }
+
+    // Create new pane
+    const newPane = { id: `pane-${Date.now()}`, tabs: [], activeTabId: null };
+
+    // Insert new pane after the pane being split
+    setPanes(prevPanes => {
+      const updated = [...prevPanes];
+      updated.splice(paneIndex + 1, 0, newPane);
+      return updated;
+    });
+
+    // Update split direction if this is the first split
+    if (panes.length === 1) {
+      setSplitDirection(direction);
+    }
+  }, [panes]);
 
   // Close pane
   const closePane = useCallback((paneId) => {
@@ -170,6 +187,66 @@ export function LayoutProvider({ children }) {
     });
   }, []);
 
+  // Move tab from one pane to another
+  const moveTab = useCallback((fromPaneId, toPaneId, tabId) => {
+    // Don't move if source and destination are the same
+    if (fromPaneId === toPaneId) return;
+
+    setPanes(prevPanes => {
+      const fromPane = prevPanes.find(p => p.id === fromPaneId);
+      if (!fromPane) return prevPanes;
+
+      const tabToMove = fromPane.tabs.find(t => t.id === tabId);
+      if (!tabToMove) return prevPanes;
+
+      return prevPanes.map(pane => {
+        // Remove tab from source pane
+        if (pane.id === fromPaneId) {
+          const newTabs = pane.tabs.filter(t => t.id !== tabId);
+          let newActiveTabId = pane.activeTabId;
+
+          // Update active tab if we're closing the active one
+          if (pane.activeTabId === tabId) {
+            if (newTabs.length === 0) {
+              newActiveTabId = null;
+            } else {
+              const tabIndex = pane.tabs.findIndex(t => t.id === tabId);
+              const newIndex = Math.min(tabIndex, newTabs.length - 1);
+              newActiveTabId = newTabs[newIndex].id;
+            }
+          }
+
+          return {
+            ...pane,
+            tabs: newTabs,
+            activeTabId: newActiveTabId
+          };
+        }
+
+        // Add tab to destination pane
+        if (pane.id === toPaneId) {
+          // Check if tab with same appId already exists in destination
+          const existingTab = pane.tabs.find(t => t.appId === tabToMove.appId);
+          if (existingTab) {
+            // Just activate the existing tab instead of creating duplicate
+            return {
+              ...pane,
+              activeTabId: existingTab.id
+            };
+          }
+
+          return {
+            ...pane,
+            tabs: [...pane.tabs, tabToMove],
+            activeTabId: tabToMove.id
+          };
+        }
+
+        return pane;
+      });
+    });
+  }, []);
+
   const value = {
     panes,
     splitDirection,
@@ -180,6 +257,7 @@ export function LayoutProvider({ children }) {
     closePane,
     getPane,
     closeAllTabsInPane,
+    moveTab,
   };
 
   return (

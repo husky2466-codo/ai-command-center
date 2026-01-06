@@ -193,8 +193,8 @@ function createWindow() {
   // Load the app
   if (isDev) {
     mainWindow.loadURL('http://localhost:5173');
-    // DevTools disabled - use Ctrl+Shift+I to open manually
-    // mainWindow.webContents.openDevTools();
+    // DevTools enabled for debugging
+    mainWindow.webContents.openDevTools({ mode: 'bottom' });
   } else {
     mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
   }
@@ -2083,12 +2083,14 @@ ipcMain.handle('pty:create', () => {
   const defaultCwd = 'D:\\Projects\\ai-command-center';
 
   // Create PTY process
+  // Use useConpty: false to avoid AttachConsole issues in packaged apps
   const ptyProcess = pty.spawn(shell, [], {
     name: 'xterm-color',
     cols: 80,
     rows: 30,
     cwd: defaultCwd,
-    env: process.env
+    env: process.env,
+    useConpty: process.platform === 'win32' ? false : undefined
   });
 
   // Store the PTY process
@@ -2109,11 +2111,6 @@ ipcMain.handle('pty:create', () => {
       mainWindow.webContents.send(`pty:exit:${terminalId}`, { exitCode, signal });
     }
   });
-
-  // Run startup command after a brief delay to ensure terminal is ready
-  setTimeout(() => {
-    ptyProcess.write('claude --dangerously-skip-permissions\r');
-  }, 100);
 
   console.log(`Created terminal ${terminalId} with shell: ${shell} in ${defaultCwd}`);
   return terminalId;

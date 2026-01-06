@@ -22,33 +22,33 @@ export default function SplitLayout({ APPS, apiKeys }) {
     );
   }
 
-  // Split view (horizontal or vertical)
+  // Multi-pane split view (2+ panes)
+  // Calculate default size for each pane (equal distribution)
+  const defaultSize = 100 / panes.length;
+
   return (
     <div className="split-layout">
       <PanelGroup direction={splitDirection === 'horizontal' ? 'horizontal' : 'vertical'}>
-        <Panel defaultSize={50} minSize={20}>
-          <PaneContainer
-            paneId={panes[0].id}
-            APPS={APPS}
-            apiKeys={apiKeys}
-            canSplit={false}
-            showCloseButton={false}
-          />
-        </Panel>
+        {panes.map((pane, index) => (
+          <React.Fragment key={pane.id}>
+            <Panel defaultSize={defaultSize} minSize={15}>
+              <PaneContainer
+                paneId={pane.id}
+                APPS={APPS}
+                apiKeys={apiKeys}
+                canSplit={true}
+                showCloseButton={panes.length > 1}
+              />
+            </Panel>
 
-        <PanelResizeHandle className="resize-handle">
-          <div className="resize-handle-inner" />
-        </PanelResizeHandle>
-
-        <Panel defaultSize={50} minSize={20}>
-          <PaneContainer
-            paneId={panes[1].id}
-            APPS={APPS}
-            apiKeys={apiKeys}
-            canSplit={false}
-            showCloseButton={true}
-          />
-        </Panel>
+            {/* Add resize handle between panes (but not after the last one) */}
+            {index < panes.length - 1 && (
+              <PanelResizeHandle className="resize-handle">
+                <div className="resize-handle-inner" />
+              </PanelResizeHandle>
+            )}
+          </React.Fragment>
+        ))}
       </PanelGroup>
     </div>
   );

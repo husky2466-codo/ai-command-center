@@ -21,25 +21,27 @@ Manages global layout state using React Context:
   - `openAppInPane(paneId, appData)` - Open app in specific pane
   - `closeTabInPane(paneId, tabId)` - Close tab in specific pane
   - `setActiveTabInPane(paneId, tabId)` - Set active tab in pane
-  - `splitPane(direction)` - Create second pane ('horizontal' or 'vertical')
+  - `splitPane(paneId, direction)` - Split specific pane ('horizontal' or 'vertical')
   - `closePane(paneId)` - Close pane and return to single view
   - `getPane(paneId)` - Get pane by ID
+  - `moveTab(fromPaneId, toPaneId, tabId)` - Move tab between panes
 
 ### SplitLayout.jsx
 Root layout component that renders either:
 - **Single pane view**: When only 1 pane exists
-- **Split view**: When 2 panes exist, using react-resizable-panels
+- **Multi-pane split view**: When 2+ panes exist, using react-resizable-panels
 
-Uses PanelGroup, Panel, and PanelResizeHandle from react-resizable-panels for resizable split.
+Uses PanelGroup, Panel, and PanelResizeHandle from react-resizable-panels for resizable splits.
+Dynamically renders all panes with equal initial sizing and resize handles between each pane.
 
 ### PaneContainer.jsx
 Individual pane component with:
 - **Tab bar**: Home button, tabs, split controls, close button
 - **Content area**: Active tab content or home screen with app grid
 - **Controls**:
-  - Split Right (Columns icon) - Creates horizontal split
-  - Split Down (Rows icon) - Creates vertical split
-  - Close Pane (X icon) - Removes pane (only shown in 2nd pane)
+  - Split Right (Columns icon) - Splits current pane horizontally (new pane appears to the right)
+  - Split Down (Rows icon) - Splits current pane vertically (new pane appears below)
+  - Close Pane (X icon) - Removes pane (shown when multiple panes exist)
 
 ### layout.css
 Styles for all layout components:
@@ -93,17 +95,27 @@ Layout state is automatically saved to localStorage under key `ai-command-center
 ### Component Instances
 Each tab gets a unique `instanceId` prop (same as tab.id) allowing components to maintain separate state when opened multiple times.
 
+### Drag and Drop Tabs
+**NEW**: Tabs can be dragged between panes for flexible workspace organization:
+- **Drag to move**: Click and hold any tab, drag to another pane's tab bar
+- **Visual feedback**: Gold highlight on valid drop targets, semi-transparent dragged tab
+- **Smart handling**: Won't create duplicates - activates existing tab if same app already open
+- **Auto-activation**: Moved tab becomes active in destination pane
+- See [TAB-DRAG-DROP.md](./TAB-DRAG-DROP.md) for detailed documentation
+
 ### Keyboard & Mouse
 - Click tab to activate
 - Click × to close tab
+- **Drag tab to move** between panes
 - Drag resize handle to adjust pane sizes
-- Minimum pane size: 20% of total width/height
+- Minimum pane size: 15% of total width/height
 
 ### Constraints
-- Maximum 2 panes supported
-- Split controls only shown when 1 pane exists
-- Close pane button only shown on 2nd pane
-- First pane cannot be closed
+- Maximum 6 panes supported (reasonable usability limit)
+- Split controls shown on all panes (each pane can be split independently)
+- Close pane button shown when 2+ panes exist
+- Cannot close the last remaining pane
+- All panes start with equal size distribution
 
 ## Design System Integration
 
@@ -128,13 +140,27 @@ Each tab gets a unique `instanceId` prop (same as tab.id) allowing components to
 - **react-resizable-panels**: ^2.1.7
 - **lucide-react**: ^0.562.0 (already installed)
 
+## Recent Changes (2026-01-05)
+
+### Multi-Pane Support (3+ panes)
+Previously limited to 2 panes, now supports up to 6 panes:
+- **Each pane can split independently**: Split buttons available on all panes
+- **Dynamic rendering**: SplitLayout.jsx uses array mapping to render any number of panes
+- **Equal distribution**: Panes automatically resize to equal widths/heights when new panes are added
+- **Flexible closing**: Any pane can be closed (except the last one)
+- **Context signature change**: `splitPane(paneId, direction)` now requires paneId parameter
+
+**Breaking Changes:**
+- `splitPane(direction)` → `splitPane(paneId, direction)` - must specify which pane to split
+
 ## Future Enhancements
 
 Potential features for future versions:
-- Drag-and-drop tabs between panes
-- More than 2 panes (grid layout)
-- Save/load named layouts
-- Keyboard shortcuts for split/close
-- Tab duplication (open same app in both panes)
-- Customizable minimum pane sizes
-- Pane swap/rearrange
+- **Tab reordering**: Drag to reorder tabs within same pane
+- **Grid layout**: Mix of horizontal and vertical splits
+- **Save/load named layouts**: Persist custom workspace configurations
+- **Keyboard shortcuts**: Ctrl+Shift+Arrow to move tabs between panes
+- **Tab duplication**: Clone tab to open same app in both panes
+- **Customizable minimum pane sizes**: User-defined constraints
+- **Pane swap/rearrange**: Drag panes to reorder them
+- **More than 6 panes**: Better UI for managing many splits

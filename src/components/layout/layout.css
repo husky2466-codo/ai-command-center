@@ -135,6 +135,8 @@
   min-width: 120px;
   max-width: 200px;
   position: relative;
+  cursor: move;
+  transition: opacity var(--transition-fast), transform var(--transition-fast);
 }
 
 .pane-container .tab.active {
@@ -149,6 +151,21 @@
 
 .pane-container .tab:not(.active):hover {
   opacity: 1;
+}
+
+/* Drag and drop styles */
+.pane-container .tab[draggable="true"] {
+  cursor: grab;
+}
+
+.pane-container .tab[draggable="true"]:active {
+  cursor: grabbing;
+}
+
+.pane-container .tabs-container.drag-over {
+  background: rgba(255, 215, 0, 0.1);
+  border-radius: 8px;
+  box-shadow: inset 0 0 0 2px var(--accent-primary);
 }
 
 .pane-container .tab-button {
