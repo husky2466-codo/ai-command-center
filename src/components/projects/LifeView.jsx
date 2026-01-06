@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { FolderKanban, Edit2, Trash2, Star } from 'lucide-react';
+import { FolderKanban, Edit2, Trash2, Star, ChevronUp, ChevronDown } from 'lucide-react';
 import { projectService } from '../../services/ProjectService';
 import Card from '../shared/Card';
 
-export default function LifeView({ spaces, onSpaceClick, onEditSpace, onDeleteSpace }) {
+export default function LifeView({ spaces, onSpaceClick, onEditSpace, onDeleteSpace, onReload }) {
   const [spacesWithCounts, setSpacesWithCounts] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -26,6 +26,37 @@ export default function LifeView({ spaces, onSpaceClick, onEditSpace, onDeleteSp
     }
   };
 
+  const handleMoveSpace = async (space, direction) => {
+    try {
+      const currentIndex = spacesWithCounts.findIndex(s => s.id === space.id);
+      const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+
+      // Boundary check
+      if (targetIndex < 0 || targetIndex >= spacesWithCounts.length) {
+        return;
+      }
+
+      const targetSpace = spacesWithCounts[targetIndex];
+
+      // Swap sort_order values
+      const currentSortOrder = space.sort_order;
+      const targetSortOrder = targetSpace.sort_order;
+
+      // Update both spaces in database
+      await Promise.all([
+        projectService.updateSpace(space.id, { sort_order: targetSortOrder }),
+        projectService.updateSpace(targetSpace.id, { sort_order: currentSortOrder })
+      ]);
+
+      // Reload spaces from parent to get new order
+      if (onReload) {
+        await onReload();
+      }
+    } catch (error) {
+      console.error('Failed to reorder spaces:', error);
+    }
+  };
+
   if (loading) {
     return <div className="life-view-loading">Loading spaces...</div>;
   }
@@ -43,7 +74,7 @@ export default function LifeView({ spaces, onSpaceClick, onEditSpace, onDeleteSp
   return (
     <div className="life-view">
       <div className="space-grid">
-        {spacesWithCounts.map(space => (
+        {spacesWithCounts.map((space, index) => (
           <SpaceCard
             key={space.id}
             space={space}
@@ -56,6 +87,16 @@ export default function LifeView({ spaces, onSpaceClick, onEditSpace, onDeleteSp
               e.stopPropagation();
               onDeleteSpace(space.id);
             }}
+            onMoveUp={(e) => {
+              e.stopPropagation();
+              handleMoveSpace(space, 'up');
+            }}
+            onMoveDown={(e) => {
+              e.stopPropagation();
+              handleMoveSpace(space, 'down');
+            }}
+            isFirst={index === 0}
+            isLast={index === spacesWithCounts.length - 1}
           />
         ))}
       </div>
@@ -63,7 +104,7 @@ export default function LifeView({ spaces, onSpaceClick, onEditSpace, onDeleteSp
   );
 }
 
-function SpaceCard({ space, onClick, onEdit, onDelete }) {
+function SpaceCard({ space, onClick, onEdit, onDelete, onMoveUp, onMoveDown, isFirst, isLast }) {
   const hasActiveProjects = space.active_count > 0;
 
   return (
@@ -89,6 +130,22 @@ function SpaceCard({ space, onClick, onEdit, onDelete }) {
           </div>
 
           <div className="space-card-actions">
+            <button
+              className="space-action-btn"
+              onClick={onMoveUp}
+              title="Move up"
+              disabled={isFirst}
+            >
+              <ChevronUp size={16} />
+            </button>
+            <button
+              className="space-action-btn"
+              onClick={onMoveDown}
+              title="Move down"
+              disabled={isLast}
+            >
+              <ChevronDown size={16} />
+            </button>
             <button
               className="space-action-btn"
               onClick={onEdit}

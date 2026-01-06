@@ -345,6 +345,7 @@ export default function Projects() {
             onSpaceClick={handleSpaceClick}
             onEditSpace={handleEditSpace}
             onDeleteSpace={handleDeleteSpace}
+            onReload={loadData}
           />
         )}
 

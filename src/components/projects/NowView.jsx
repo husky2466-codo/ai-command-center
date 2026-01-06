@@ -26,6 +26,15 @@ const ENERGY_ICONS = {
   people_work: Users
 };
 
+// Default fallback for unknown energy types
+const DEFAULT_ENERGY = {
+  id: 'unknown',
+  label: 'Medium',
+  color: '#9ca3af',
+  description: 'Moderate effort task'
+
+};
+
 export default function NowView({
   tasks,
   projects,
@@ -162,8 +171,8 @@ export default function NowView({
 function TaskItem({ task, project, onToggle, onEdit, onDelete }) {
   const isCompleted = task.status === 'completed';
   const isOverdue = task.due_date && new Date(task.due_date) < new Date();
-  const energy = ENERGY_TYPES[task.energy_type];
-  const Icon = ENERGY_ICONS[task.energy_type];
+  const energy = ENERGY_TYPES[task.energy_type] || DEFAULT_ENERGY;
+  const Icon = ENERGY_ICONS[task.energy_type] || Zap;
 
   return (
     <div className={`task-item ${isCompleted ? 'completed' : ''}`}>

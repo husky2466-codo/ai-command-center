@@ -14,10 +14,12 @@
 
 3. **Silently load context** (DO NOT show in terminal):
    - Detect OS from environment (darwin = Mac, win32 = Windows)
-   - **Mac paths:** `~/.claude/CLAUDE.md` and `~/.claude/CLAUDELONGTERM.md`
-   - **Windows paths:** `~/CLAUDE.md` and `~/CLAUDELONGTERM.md` (home directory root)
+   - **Mac paths:** `~/.claude/CLAUDE.md` and `~/.claude/CLAUDELONGTERM.md` (current project directory root)
+   - **Windows paths:** `~/CLAUDE.md` and `~/CLAUDELONGTERM.md` (current project directory root)
    - Note any ongoing projects or pending tasks from last session
    - Be ready to pick up where we left off if asked
+   - Create CLAUDELONGTERM.md if it doesn't exist
+   - If CLAUDELONGTERM.md exists, append to it
 
 4. **Keep it brief** - The greeting should be 3-5 sentences max, conversational and friendly
 

@@ -921,6 +921,24 @@ curl -X POST http://localhost:3939/api/dgx/jobs \
 
 ---
 
+### 2026-01-05 - Terminal Session Persistence Fix
+
+**Problem**: Terminal sessions were resetting every time the user switched tabs, losing command history, current directory, and running processes.
+
+**Root Cause**: In `PaneContainer.jsx` line 173, the `ErrorBoundary` component had a duplicate `key={tab.id}` prop. This caused React to treat it as a new component instance on every tab switch, triggering the Terminal's cleanup logic (PTY kill, xterm.js disposal).
+
+**Solution**: Removed the duplicate key from `ErrorBoundary` since the parent `div` already has the correct `key={tab.id}`. The layout system correctly uses CSS `display: flex/none` to hide inactive tabs while keeping them mounted in the DOM.
+
+**Impact**: ALL tabs (Terminal, Chat, Vision, DGX, etc.) now properly preserve their state when switching. This is the intended behavior of the split pane system.
+
+**Files Modified:**
+- `src/components/layout/PaneContainer.jsx` - Line 173: Removed `key={tab.id}` from ErrorBoundary
+
+**Documentation Created:**
+- `TERMINAL-PERSISTENCE-FIX.md` - Detailed analysis and technical explanation
+
+---
+
 ### 2026-01-02 - Claude Subscription Mode Implementation
 
 **Goal**: Enable using Claude Pro/Max subscription ($200/month) instead of per-token API billing.
