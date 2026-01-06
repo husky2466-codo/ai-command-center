@@ -193,8 +193,8 @@ function createWindow() {
   // Load the app
   if (isDev) {
     mainWindow.loadURL('http://localhost:5173');
-    // DevTools enabled for debugging
-    mainWindow.webContents.openDevTools({ mode: 'bottom' });
+    // DevTools disabled by default - use Ctrl+Shift+I to open manually if needed
+    // mainWindow.webContents.openDevTools({ mode: 'bottom' });
   } else {
     mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
   }
