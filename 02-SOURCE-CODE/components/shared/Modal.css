@@ -1,0 +1,240 @@
+/* ============================================================
+   MODAL COMPONENT
+
+   Centered overlay modal with dark backdrop and blur effect.
+   Handles animations, focus trap, and accessibility.
+   ============================================================ */
+
+/* ========================================
+   BACKDROP
+   ======================================== */
+
+.modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: var(--z-modal-backdrop);
+  padding: var(--spacing-lg);
+  animation: modal-backdrop-fade-in var(--transition-normal);
+}
+
+@keyframes modal-backdrop-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* ========================================
+   MODAL CONTAINER
+   ======================================== */
+
+.modal {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius-xl);
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - var(--spacing-2xl) * 2);
+  position: relative;
+  z-index: var(--z-modal);
+  animation: modal-slide-in var(--transition-normal);
+}
+
+@keyframes modal-slide-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* Focus outline for accessibility */
+.modal:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-lg), 0 0 0 2px var(--accent-gold);
+}
+
+/* ========================================
+   SIZE VARIANTS
+   ======================================== */
+
+.modal-small {
+  width: 100%;
+  max-width: 400px;
+}
+
+.modal-medium {
+  width: 100%;
+  max-width: 600px;
+}
+
+.modal-large {
+  width: 100%;
+  max-width: 900px;
+}
+
+.modal-fullscreen {
+  width: calc(100vw - var(--spacing-2xl) * 2);
+  height: calc(100vh - var(--spacing-2xl) * 2);
+  max-width: none;
+  max-height: none;
+}
+
+/* ========================================
+   HEADER
+   ======================================== */
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--spacing-lg);
+  border-bottom: 1px solid var(--border-color);
+  gap: var(--spacing-md);
+}
+
+.modal-title {
+  margin: 0;
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+  line-height: var(--line-height-tight);
+  flex: 1;
+}
+
+.modal-close {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: var(--spacing-xs);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--border-radius-md);
+  transition: all var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.modal-close:hover {
+  color: var(--text-primary);
+  background: var(--bg-elevated);
+}
+
+.modal-close:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--accent-gold);
+}
+
+/* ========================================
+   BODY
+   ======================================== */
+
+.modal-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--spacing-lg);
+  color: var(--text-secondary);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-normal);
+}
+
+/* Custom scrollbar for modal body */
+.modal-body::-webkit-scrollbar {
+  width: 8px;
+}
+
+.modal-body::-webkit-scrollbar-track {
+  background: var(--bg-primary);
+  border-radius: var(--border-radius-md);
+}
+
+.modal-body::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: var(--border-radius-md);
+}
+
+.modal-body::-webkit-scrollbar-thumb:hover {
+  background: var(--border-color-hover);
+}
+
+/* ========================================
+   FOOTER
+   ======================================== */
+
+.modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-lg);
+  border-top: 1px solid var(--border-color);
+  flex-wrap: wrap;
+}
+
+/* ========================================
+   RESPONSIVE
+   ======================================== */
+
+@media (max-width: 768px) {
+  .modal-backdrop {
+    padding: var(--spacing-md);
+  }
+
+  .modal {
+    max-height: calc(100vh - var(--spacing-md) * 2);
+  }
+
+  .modal-small,
+  .modal-medium,
+  .modal-large {
+    max-width: 100%;
+  }
+
+  .modal-fullscreen {
+    width: calc(100vw - var(--spacing-md) * 2);
+    height: calc(100vh - var(--spacing-md) * 2);
+  }
+
+  .modal-header {
+    padding: var(--spacing-md);
+  }
+
+  .modal-body {
+    padding: var(--spacing-md);
+  }
+
+  .modal-footer {
+    padding: var(--spacing-md);
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .modal-footer > * {
+    width: 100%;
+  }
+
+  .modal-title {
+    font-size: var(--font-size-lg);
+  }
+}
+
+@media (max-width: 480px) {
+  .modal-backdrop {
+    padding: var(--spacing-sm);
+  }
+}

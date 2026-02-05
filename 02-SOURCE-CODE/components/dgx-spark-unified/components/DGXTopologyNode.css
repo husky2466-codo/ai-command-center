@@ -1,0 +1,173 @@
+/* DGX Topology Node Styles */
+
+.dgx-topology-node {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  background: var(--node-bg, #161b22);
+  border: 2px solid var(--node-border, #30363d);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.dgx-topology-node:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+  z-index: 10;
+}
+
+.dgx-topology-node:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(0, 212, 255, 0.3);
+}
+
+.dgx-topology-node.selected {
+  border-width: 3px;
+  box-shadow: 0 0 20px rgba(0, 212, 255, 0.5);
+  z-index: 20;
+}
+
+.dgx-topology-node.pulsing {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  }
+  50% {
+    box-shadow: 0 4px 16px rgba(255, 215, 0, 0.6);
+  }
+}
+
+/* Node Header */
+.node-header {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  margin-bottom: 12px;
+}
+
+.node-icon {
+  color: var(--text-secondary);
+  opacity: 0.8;
+}
+
+/* Node Body */
+.node-body {
+  width: 100%;
+  text-align: center;
+  margin-bottom: 16px;
+}
+
+.node-name {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 8px 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.node-hostname {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Node Footer */
+.node-footer {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.node-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.status-icon {
+  flex-shrink: 0;
+}
+
+.status-label {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.node-gpu-info {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 6px;
+}
+
+.gpu-icon {
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+}
+
+.gpu-text {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Selection Indicator */
+.node-selection-indicator {
+  position: absolute;
+  top: -4px;
+  left: -4px;
+  right: -4px;
+  bottom: -4px;
+  border: 2px solid var(--topology-line, #00d4ff);
+  border-radius: 14px;
+  pointer-events: none;
+  animation: selection-glow 1.5s ease-in-out infinite;
+}
+
+@keyframes selection-glow {
+  0%, 100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+  .dgx-topology-node {
+    padding: 16px;
+  }
+
+  .node-name {
+    font-size: 14px;
+  }
+
+  .node-hostname {
+    font-size: 12px;
+  }
+
+  .gpu-text {
+    font-size: 11px;
+  }
+}

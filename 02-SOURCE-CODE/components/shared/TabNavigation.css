@@ -1,0 +1,91 @@
+.tab-bar {
+  height: var(--tab-height);
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  align-items: stretch;
+  padding: 0 4px;
+  gap: 2px;
+  -webkit-app-region: drag;
+}
+
+.home-btn {
+  -webkit-app-region: no-drag;
+  width: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  color: var(--text-secondary);
+  border-radius: 6px;
+  margin: 4px 4px 4px 0;
+}
+
+.home-btn:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.tabs-container {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  overflow-x: auto;
+  flex: 1;
+  -webkit-app-region: no-drag;
+}
+
+.tab {
+  display: flex;
+  align-items: center;
+  background: var(--bg-primary);
+  border-radius: 8px 8px 0 0;
+  margin-top: 4px;
+  min-width: 120px;
+  max-width: 200px;
+  position: relative;
+}
+
+.tab.active {
+  background: var(--bg-primary);
+  border-top: 2px solid var(--tab-accent);
+}
+
+.tab:not(.active) {
+  background: var(--bg-tertiary);
+  opacity: 0.7;
+}
+
+.tab:not(.active):hover {
+  opacity: 1;
+}
+
+.tab-button {
+  flex: 1;
+  background: transparent;
+  color: var(--text-primary);
+  padding: 8px 12px;
+  font-size: 13px;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tab-close {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 18px;
+  border-radius: 4px;
+  margin-right: 4px;
+}
+
+.tab-close:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-primary);
+}

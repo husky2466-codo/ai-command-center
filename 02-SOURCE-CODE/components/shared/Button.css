@@ -1,0 +1,238 @@
+/* ============================================================
+   BUTTON COMPONENT
+
+   Versatile button with variants, sizes, and loading states.
+   Uses CSS variables exclusively - no hardcoded colors.
+   ============================================================ */
+
+/* ========================================
+   BASE BUTTON
+   ======================================== */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-sm);
+  font-family: var(--font-family);
+  font-weight: var(--font-weight-semibold);
+  border-radius: var(--border-radius-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  border: none;
+  outline: none;
+  text-decoration: none;
+  white-space: nowrap;
+  user-select: none;
+  position: relative;
+}
+
+.btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.btn:focus-visible {
+  box-shadow: 0 0 0 2px var(--bg-primary), 0 0 0 4px var(--accent-gold);
+}
+
+/* ========================================
+   SIZE VARIANTS
+   ======================================== */
+
+.btn-sm {
+  font-size: var(--font-size-sm);
+  padding: 6px 12px;
+  min-height: 28px;
+}
+
+.btn-md {
+  font-size: var(--font-size-base);
+  padding: 8px 16px;
+  min-height: 36px;
+}
+
+.btn-lg {
+  font-size: var(--font-size-md);
+  padding: 12px 24px;
+  min-height: 44px;
+}
+
+/* ========================================
+   VARIANT: PRIMARY (Gold)
+   ======================================== */
+
+.btn-primary {
+  background: var(--accent-gold);
+  color: var(--text-inverse);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--accent-gold-hover);
+  box-shadow: var(--shadow-gold);
+}
+
+.btn-primary:active:not(:disabled) {
+  background: var(--accent-gold-dim);
+  transform: translateY(1px);
+}
+
+/* ========================================
+   VARIANT: SECONDARY (Outlined)
+   ======================================== */
+
+.btn-secondary {
+  background: transparent;
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: var(--bg-elevated);
+  border-color: var(--accent-gold);
+  color: var(--accent-gold);
+}
+
+.btn-secondary:active:not(:disabled) {
+  background: var(--bg-card);
+  transform: translateY(1px);
+}
+
+/* ========================================
+   VARIANT: GHOST (Minimal)
+   ======================================== */
+
+.btn-ghost {
+  background: transparent;
+  color: var(--text-secondary);
+  border: none;
+}
+
+.btn-ghost:hover:not(:disabled) {
+  background: var(--bg-elevated);
+  color: var(--accent-gold);
+}
+
+.btn-ghost:active:not(:disabled) {
+  background: var(--bg-card);
+  transform: translateY(1px);
+}
+
+/* ========================================
+   VARIANT: DANGER (Red)
+   ======================================== */
+
+.btn-danger {
+  background: var(--status-error);
+  color: var(--text-primary);
+}
+
+.btn-danger:hover:not(:disabled) {
+  background: #dc2626;
+  box-shadow: 0 0 20px rgba(239, 68, 68, 0.3);
+}
+
+.btn-danger:active:not(:disabled) {
+  background: #b91c1c;
+  transform: translateY(1px);
+}
+
+/* ========================================
+   LOADING STATE
+   ======================================== */
+
+.btn-loading {
+  cursor: wait;
+  pointer-events: none;
+}
+
+.btn-spinner {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-spinner-icon {
+  animation: btn-spin 1s linear infinite;
+}
+
+@keyframes btn-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ========================================
+   ICONS
+   ======================================== */
+
+.btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.btn-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.btn-sm .btn-icon svg {
+  width: 14px;
+  height: 14px;
+}
+
+.btn-lg .btn-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* ========================================
+   CONTENT
+   ======================================== */
+
+.btn-content {
+  display: inline-flex;
+  align-items: center;
+}
+
+/* ========================================
+   FULL WIDTH
+   ======================================== */
+
+.btn-full-width {
+  width: 100%;
+}
+
+/* ========================================
+   ICON-ONLY BUTTON
+   ======================================== */
+
+.btn:not(:has(.btn-content)) {
+  padding: var(--spacing-sm);
+  aspect-ratio: 1;
+}
+
+.btn-sm:not(:has(.btn-content)) {
+  padding: 6px;
+}
+
+.btn-lg:not(:has(.btn-content)) {
+  padding: 12px;
+}
+
+/* ========================================
+   RESPONSIVE
+   ======================================== */
+
+@media (max-width: 768px) {
+  .btn-lg {
+    font-size: var(--font-size-base);
+    padding: 10px 20px;
+    min-height: 40px;
+  }
+}

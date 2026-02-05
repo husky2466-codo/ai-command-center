@@ -1,0 +1,80 @@
+/* ============================================================
+   COMPONENT SHOWCASE STYLES
+   ============================================================ */
+
+.showcase {
+  padding: var(--spacing-2xl);
+  background: var(--bg-primary);
+  min-height: 100vh;
+}
+
+.showcase-header {
+  margin-bottom: var(--spacing-2xl);
+  text-align: center;
+}
+
+.showcase-header h1 {
+  margin: 0 0 var(--spacing-sm) 0;
+  font-size: var(--font-size-3xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--text-primary);
+  background: var(--brand-gradient);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.showcase-header p {
+  margin: 0;
+  font-size: var(--font-size-lg);
+  color: var(--text-secondary);
+}
+
+.showcase-grid {
+  display: grid;
+  gap: var(--spacing-lg);
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.showcase-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.showcase-section h4 {
+  margin: var(--spacing-md) 0 var(--spacing-sm) 0;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: var(--letter-spacing-wider);
+}
+
+.showcase-section h4:first-child {
+  margin-top: 0;
+}
+
+.showcase-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-sm);
+  align-items: center;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .showcase {
+    padding: var(--spacing-lg);
+  }
+
+  .showcase-header h1 {
+    font-size: var(--font-size-2xl);
+  }
+
+  .showcase-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

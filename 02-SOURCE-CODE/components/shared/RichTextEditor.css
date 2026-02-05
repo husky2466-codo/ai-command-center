@@ -1,0 +1,407 @@
+/* ============================================================
+   RICH TEXT EDITOR COMPONENT
+
+   TipTap-based rich text editor with dark theme styling.
+   Uses CSS variables exclusively - no hardcoded colors.
+   ============================================================ */
+
+/* ========================================
+   CONTAINER
+   ======================================== */
+
+.rte-container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  width: 100%;
+}
+
+/* ========================================
+   LABEL
+   ======================================== */
+
+.rte-label {
+  display: block;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--text-primary);
+  letter-spacing: var(--letter-spacing-wide);
+  margin-bottom: var(--spacing-xs);
+}
+
+/* ========================================
+   TOOLBAR
+   ======================================== */
+
+.rte-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-sm);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-bottom: none;
+  border-radius: var(--border-radius-md) var(--border-radius-md) 0 0;
+}
+
+.rte-toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding-right: var(--spacing-sm);
+  border-right: 1px solid var(--border-color);
+}
+
+.rte-toolbar-group:last-child {
+  border-right: none;
+  padding-right: 0;
+}
+
+.rte-toolbar-group-right {
+  margin-left: auto;
+}
+
+/* ========================================
+   TOOLBAR BUTTONS
+   ======================================== */
+
+.rte-toolbar-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--border-radius-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.rte-toolbar-btn:hover:not(:disabled) {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  border-color: var(--border-color);
+}
+
+.rte-toolbar-btn:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--accent-gold);
+}
+
+.rte-toolbar-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Active state - gold highlight */
+.rte-toolbar-btn-active {
+  background: rgba(255, 215, 0, 0.15);
+  color: var(--accent-gold);
+  border-color: var(--accent-gold);
+}
+
+.rte-toolbar-btn-active:hover:not(:disabled) {
+  background: rgba(255, 215, 0, 0.25);
+  color: var(--accent-gold);
+}
+
+/* ========================================
+   EDITOR CONTENT AREA
+   ======================================== */
+
+.rte-content {
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  border-radius: 0 0 var(--border-radius-md) var(--border-radius-md);
+  padding: var(--spacing-md);
+  transition: border-color var(--transition-fast);
+}
+
+/* When there's no toolbar (readonly), round all corners */
+.rte-readonly .rte-content {
+  border-radius: var(--border-radius-md);
+}
+
+/* Focus state */
+.rte-content:focus-within {
+  border-color: var(--accent-gold);
+  box-shadow: 0 0 0 3px rgba(255, 215, 0, 0.1);
+}
+
+/* Error state */
+.rte-has-error .rte-content {
+  border-color: var(--status-error);
+}
+
+.rte-has-error .rte-content:focus-within {
+  border-color: var(--status-error);
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+}
+
+.rte-has-error .rte-toolbar {
+  border-color: var(--status-error);
+}
+
+/* ========================================
+   TIPTAP EDITOR STYLES
+   ======================================== */
+
+.rte-content .tiptap {
+  outline: none;
+  min-height: inherit;
+  color: var(--text-primary);
+  font-family: var(--font-family);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-relaxed);
+}
+
+/* Placeholder */
+.rte-content .tiptap p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  color: var(--text-muted);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
+
+/* Paragraphs */
+.rte-content .tiptap p {
+  margin: 0 0 var(--spacing-sm) 0;
+}
+
+.rte-content .tiptap p:last-child {
+  margin-bottom: 0;
+}
+
+/* Headings */
+.rte-content .tiptap h1,
+.rte-content .tiptap h2,
+.rte-content .tiptap h3 {
+  color: var(--text-primary);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-tight);
+  margin: var(--spacing-md) 0 var(--spacing-sm) 0;
+}
+
+.rte-content .tiptap h1:first-child,
+.rte-content .tiptap h2:first-child,
+.rte-content .tiptap h3:first-child {
+  margin-top: 0;
+}
+
+.rte-content .tiptap h1 {
+  font-size: var(--font-size-2xl);
+}
+
+.rte-content .tiptap h2 {
+  font-size: var(--font-size-xl);
+}
+
+.rte-content .tiptap h3 {
+  font-size: var(--font-size-lg);
+}
+
+/* Bold, Italic, Underline, Strike */
+.rte-content .tiptap strong {
+  font-weight: var(--font-weight-bold);
+}
+
+.rte-content .tiptap em {
+  font-style: italic;
+}
+
+.rte-content .tiptap u {
+  text-decoration: underline;
+}
+
+.rte-content .tiptap s {
+  text-decoration: line-through;
+  opacity: 0.7;
+}
+
+/* Lists */
+.rte-content .tiptap ul,
+.rte-content .tiptap ol {
+  margin: 0 0 var(--spacing-sm) 0;
+  padding-left: var(--spacing-lg);
+}
+
+.rte-content .tiptap li {
+  margin-bottom: var(--spacing-xs);
+}
+
+.rte-content .tiptap li p {
+  margin: 0;
+}
+
+.rte-content .tiptap ul {
+  list-style-type: disc;
+}
+
+.rte-content .tiptap ol {
+  list-style-type: decimal;
+}
+
+/* Nested lists */
+.rte-content .tiptap ul ul,
+.rte-content .tiptap ol ul {
+  list-style-type: circle;
+}
+
+.rte-content .tiptap ul ul ul,
+.rte-content .tiptap ol ul ul {
+  list-style-type: square;
+}
+
+/* Links */
+.rte-content .tiptap a,
+.rte-content .tiptap .rte-link {
+  color: var(--accent-gold);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+  transition: color var(--transition-fast);
+}
+
+.rte-content .tiptap a:hover,
+.rte-content .tiptap .rte-link:hover {
+  color: var(--accent-gold-hover);
+}
+
+/* Code Block */
+.rte-content .tiptap pre {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius-md);
+  padding: var(--spacing-md);
+  margin: var(--spacing-sm) 0;
+  overflow-x: auto;
+}
+
+.rte-content .tiptap pre code {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+  background: none;
+  padding: 0;
+}
+
+/* Inline Code */
+.rte-content .tiptap code {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  background: var(--bg-tertiary);
+  border-radius: var(--border-radius-sm);
+  padding: 2px 6px;
+  color: var(--accent-gold);
+}
+
+/* Blockquote */
+.rte-content .tiptap blockquote {
+  border-left: 3px solid var(--accent-gold);
+  margin: var(--spacing-sm) 0;
+  padding-left: var(--spacing-md);
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+/* Horizontal Rule */
+.rte-content .tiptap hr {
+  border: none;
+  border-top: 1px solid var(--border-color);
+  margin: var(--spacing-md) 0;
+}
+
+/* Images */
+.rte-content .tiptap img,
+.rte-content .tiptap .rte-image {
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--border-radius-md);
+  margin: var(--spacing-sm) 0;
+}
+
+/* Selection */
+.rte-content .tiptap ::selection {
+  background: rgba(255, 215, 0, 0.3);
+}
+
+/* ========================================
+   ERROR MESSAGE
+   ======================================== */
+
+.rte-error {
+  display: block;
+  font-size: var(--font-size-sm);
+  color: var(--status-error);
+  line-height: var(--line-height-normal);
+  margin-top: var(--spacing-xs);
+}
+
+/* ========================================
+   READONLY STATE
+   ======================================== */
+
+.rte-readonly .rte-content {
+  background: var(--bg-secondary);
+  cursor: default;
+}
+
+.rte-readonly .rte-content .tiptap {
+  cursor: default;
+}
+
+/* ========================================
+   SCROLLBAR STYLING (for max-height overflow)
+   ======================================== */
+
+.rte-content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.rte-content::-webkit-scrollbar-track {
+  background: var(--bg-tertiary);
+  border-radius: 4px;
+}
+
+.rte-content::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 4px;
+}
+
+.rte-content::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+/* ========================================
+   RESPONSIVE
+   ======================================== */
+
+@media (max-width: 768px) {
+  .rte-toolbar {
+    padding: var(--spacing-xs);
+    gap: 2px;
+  }
+
+  .rte-toolbar-group {
+    padding-right: var(--spacing-xs);
+  }
+
+  .rte-toolbar-btn {
+    width: 28px;
+    height: 28px;
+  }
+
+  .rte-toolbar-btn svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  .rte-content {
+    padding: var(--spacing-sm);
+  }
+}

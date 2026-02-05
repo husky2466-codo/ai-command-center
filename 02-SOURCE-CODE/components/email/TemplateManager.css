@@ -1,0 +1,551 @@
+/* ============================================================================
+   TEMPLATE MANAGER - Full template management modal
+   Gmail Red Accent (#ea4335) | Template organization and editing
+   ============================================================================ */
+
+/* Modal Override for larger size */
+.template-manager-modal .modal-content {
+  max-width: 1000px;
+  max-height: 85vh;
+}
+
+/* Main Container */
+.template-manager {
+  display: flex;
+  flex-direction: column;
+  height: 60vh;
+  min-height: 400px;
+  gap: 16px;
+}
+
+/* ============================================================================
+   TOOLBAR
+   ============================================================================ */
+
+.template-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border-color);
+  flex-wrap: wrap;
+}
+
+.template-toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.template-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.template-search {
+  min-width: 200px;
+}
+
+.template-category-filter {
+  padding: 8px 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-size: 14px;
+  cursor: pointer;
+  transition: border-color 0.2s ease;
+}
+
+.template-category-filter:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+/* ============================================================================
+   TEMPLATE LIST
+   ============================================================================ */
+
+.template-list {
+  flex: 1;
+  overflow-y: auto;
+  padding-right: 8px;
+}
+
+.template-loading,
+.template-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 16px;
+  color: var(--text-secondary);
+  text-align: center;
+  padding: 40px;
+}
+
+.template-empty .empty-icon {
+  color: var(--text-muted);
+  opacity: 0.5;
+}
+
+.template-empty h3 {
+  margin: 0;
+  font-size: 18px;
+  color: var(--text-primary);
+}
+
+.template-empty p {
+  margin: 0;
+  font-size: 14px;
+  max-width: 300px;
+}
+
+/* ============================================================================
+   TEMPLATE GROUPS
+   ============================================================================ */
+
+.template-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.template-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.template-group-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  width: 100%;
+  text-align: left;
+}
+
+.template-group-header:hover {
+  background: var(--bg-card);
+  color: var(--text-primary);
+}
+
+.template-group-header .folder-icon {
+  color: var(--accent-gold);
+}
+
+.template-group-header .category-name {
+  flex: 1;
+}
+
+.template-group-header .category-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.template-group-items {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 0 8px 24px;
+}
+
+/* ============================================================================
+   TEMPLATE ITEM
+   ============================================================================ */
+
+.template-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 16px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.template-item:hover {
+  background: var(--bg-elevated);
+  border-color: var(--accent);
+}
+
+.template-item.previewing {
+  border-color: #ea4335;
+  box-shadow: 0 0 0 2px rgba(234, 67, 53, 0.2);
+}
+
+.template-item-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.template-item-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.template-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.template-favorite-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.template-favorite-btn:hover {
+  background: rgba(255, 215, 0, 0.15);
+  color: var(--accent-gold);
+}
+
+.template-favorite-btn.favorited {
+  color: var(--accent-gold);
+}
+
+.template-subject {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.template-preview {
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.template-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.template-category-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  background: rgba(234, 67, 53, 0.15);
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  color: #ea4335;
+}
+
+.template-usage {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.template-item-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.template-item-actions .delete-btn:hover {
+  color: var(--status-error);
+}
+
+/* ============================================================================
+   PREVIEW PANEL
+   ============================================================================ */
+
+.template-preview-panel {
+  position: absolute;
+  right: 24px;
+  top: 24px;
+  bottom: 24px;
+  width: 350px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: var(--shadow-lg);
+  z-index: 10;
+}
+
+.preview-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.preview-header h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.preview-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.preview-close:hover {
+  background: var(--bg-card);
+  color: var(--text-primary);
+}
+
+.preview-content {
+  flex: 1;
+  padding: 16px;
+  overflow-y: auto;
+}
+
+.preview-subject {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.preview-subject strong {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.preview-body {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text-primary);
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+.preview-actions {
+  padding: 16px;
+  border-top: 1px solid var(--border-color);
+}
+
+.preview-actions .btn {
+  width: 100%;
+}
+
+/* ============================================================================
+   TEMPLATE FORM (Edit/Create Modal)
+   ============================================================================ */
+
+.template-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.template-form-row {
+  display: grid;
+  grid-template-columns: 1fr 200px;
+  gap: 16px;
+}
+
+.template-form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.template-form-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.template-category-select {
+  width: 100%;
+  padding: 10px 12px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-size: 14px;
+  cursor: pointer;
+  transition: border-color 0.2s ease;
+}
+
+.template-category-select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.template-body-textarea {
+  width: 100%;
+  padding: 12px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-size: 14px;
+  font-family: inherit;
+  line-height: 1.6;
+  resize: vertical;
+  min-height: 200px;
+  transition: border-color 0.2s ease;
+}
+
+.template-body-textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+/* Variable Helpers */
+.template-variables {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 8px 12px;
+  background: var(--bg-card);
+  border-radius: 6px;
+}
+
+.variables-label {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.variable-btn {
+  padding: 4px 8px;
+  background: rgba(234, 67, 53, 0.1);
+  border: 1px solid rgba(234, 67, 53, 0.3);
+  border-radius: 4px;
+  color: #ea4335;
+  font-size: 11px;
+  font-family: monospace;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.variable-btn:hover {
+  background: rgba(234, 67, 53, 0.2);
+  border-color: #ea4335;
+}
+
+.template-form-checkbox {
+  padding-top: 8px;
+}
+
+.template-form-checkbox label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.template-form-checkbox input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent-gold);
+}
+
+.template-form-checkbox svg {
+  color: var(--accent-gold);
+}
+
+/* ============================================================================
+   RESPONSIVE ADJUSTMENTS
+   ============================================================================ */
+
+@media (max-width: 900px) {
+  .template-manager-modal .modal-content {
+    max-width: 95vw;
+  }
+
+  .template-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .template-toolbar-left,
+  .template-toolbar-right {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .template-search {
+    flex: 1;
+    min-width: 150px;
+  }
+
+  .template-category-filter {
+    flex: 1;
+  }
+
+  .template-preview-panel {
+    position: fixed;
+    left: 16px;
+    right: 16px;
+    top: auto;
+    bottom: 16px;
+    width: auto;
+    max-height: 50vh;
+  }
+
+  .template-form-row {
+    grid-template-columns: 1fr;
+  }
+}

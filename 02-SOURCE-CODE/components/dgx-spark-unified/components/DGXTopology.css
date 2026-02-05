@@ -1,0 +1,97 @@
+/* DGX Topology Canvas Styles */
+
+.dgx-topology {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 500px;
+  background: var(--bg-primary);
+  overflow: hidden;
+}
+
+/* SVG Connection Lines Layer */
+.dgx-topology-connections {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Node Layer */
+.dgx-topology-nodes {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  z-index: 2;
+}
+
+/* Empty State */
+.dgx-topology-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 40px;
+}
+
+.empty-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 8px 0;
+}
+
+.empty-subtitle {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+/* Keyboard Navigation Hint */
+.topology-hint {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 8px 16px;
+  background: rgba(0, 0, 0, 0.7);
+  border: 1px solid var(--node-border);
+  border-radius: 6px;
+  font-size: 12px;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0.7;
+  z-index: 100;
+  transition: opacity 0.3s ease;
+}
+
+.dgx-topology:hover .topology-hint {
+  opacity: 1;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+  .dgx-topology {
+    min-height: 400px;
+  }
+
+  .topology-hint {
+    font-size: 11px;
+    padding: 6px 12px;
+    bottom: 12px;
+  }
+}
+
+/* Focus Trap for Keyboard Navigation */
+.dgx-topology:focus-within .topology-hint {
+  opacity: 1;
+  border-color: var(--topology-line);
+}
