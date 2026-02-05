@@ -1,6 +1,0 @@
-{
-  "name": "@ai-command-center/google-services",
-  "version": "1.0.0",
-  "main": "index.cjs",
-  "description": "Google Account Services for AI Command Center - Gmail, Calendar, Contacts"
-}
