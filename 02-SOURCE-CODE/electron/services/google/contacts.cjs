@@ -1,10 +1,11 @@
 /**
  * GoogleContactsService - Contact management operations
  * Handles contact sync via People API
+ * Extends GoogleBaseService for OAuth and token handling
  */
 
 const { google } = require('googleapis');
-const { GoogleBaseService, withExponentialBackoff } = require('./googleBaseService.cjs');
+const { GoogleBaseService, withExponentialBackoff } = require('./base.cjs');
 
 /**
  * GoogleContactsService - Extends GoogleBaseService with contact operations
@@ -41,7 +42,7 @@ class GoogleContactsService extends GoogleBaseService {
 
     const { pageSize = 500 } = options;
 
-    console.log(`[GoogleContactsService] Syncing contacts for ${this.email}`);
+    console.log(`[GoogleService] Syncing contacts for ${this.email}`);
 
     try {
       let syncedCount = 0;
@@ -58,7 +59,7 @@ class GoogleContactsService extends GoogleBaseService {
         });
 
         const connections = response.data.connections || [];
-        console.log(`[GoogleContactsService] Fetched ${connections.length} contacts from Google API (page ${pageToken ? 'continuation' : 'first'})`);
+        console.log(`[GoogleService] Fetched ${connections.length} contacts from Google API (page ${pageToken ? 'continuation' : 'first'})`);
 
         for (const contact of connections) {
           this._upsertContact(accountId, contact);
@@ -69,10 +70,10 @@ class GoogleContactsService extends GoogleBaseService {
 
       } while (pageToken);
 
-      console.log(`[GoogleContactsService] Contacts sync complete: ${syncedCount} contacts total synced to database`);
+      console.log(`[GoogleService] Contacts sync complete: ${syncedCount} contacts total synced to database`);
       return { synced: syncedCount };
     } catch (error) {
-      console.error(`[GoogleContactsService] Contacts sync failed:`, error.message);
+      console.error(`[GoogleService] Contacts sync failed:`, error.message);
       throw error;
     }
   }
@@ -142,7 +143,7 @@ class GoogleContactsService extends GoogleBaseService {
     const stmt = this.db.prepare(query);
     const contacts = stmt.all(...params);
 
-    console.log(`[GoogleContactsService] getContacts: Found ${contacts.length} contacts in database for account ${accountId}`);
+    console.log(`[GoogleService] getContacts: Found ${contacts.length} contacts in database for account ${accountId}`);
 
     // Return contacts in Google People API format by parsing raw_data
     return contacts.map(contact => {
@@ -151,7 +152,7 @@ class GoogleContactsService extends GoogleBaseService {
         const rawContact = JSON.parse(contact.raw_data);
         return rawContact;
       } catch (error) {
-        console.error(`[GoogleContactsService] Error parsing contact raw_data for ${contact.id}:`, error.message);
+        console.error(`[GoogleService] Error parsing contact raw_data for ${contact.id}:`, error.message);
         // Fallback: construct minimal format from flattened data
         return {
           resourceName: contact.resource_name,

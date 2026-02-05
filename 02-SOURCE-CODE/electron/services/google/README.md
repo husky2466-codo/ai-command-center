@@ -1,205 +1,66 @@
-# Google Services Refactor
+# Google Services - Modular Architecture
 
-This directory contains the refactored Google Account Service, organized into focused, manageable modules.
+This directory contains the refactored Google Account Service, split from a 3,100-line monolith into 8 focused modules using a facade pattern.
 
-## Overview
+## Architecture
 
-The original `googleAccountService.cjs` was 2,823 lines mixing Gmail, Calendar, and Contacts operations. This refactor splits it into:
-
-- **googleBaseService.cjs** (256 lines) - OAuth, token management, account CRUD
-- **gmailService.cjs** (900+ lines) - Email sync, operations, labels, attachments (PARTIAL - IN PROGRESS)
-- **googleCalendarService.cjs** (220 lines) - Calendar event operations
-- **googleContactsService.cjs** (180 lines) - Contact management
-- **index.cjs** - Exports with backward compatibility
-- **package.json** - Module entry point configuration
-
-## Current Status
-
-### Completed
-- Base service with OAuth and shared utilities
-- Calendar service (complete)
-- Contacts service (complete)
-- Gmail service (partial - core email operations)
-- Backward compatibility layer
-
-### In Progress
-- Gmail service still needs:
-  - Batch operations (batchModifyEmails, batchTrashEmails, batchDeleteEmails)
-  - Label management (getLabels, createLabel, updateLabel, deleteLabel, applyLabel, removeLabel)
-  - Attachments (downloadAttachment, getAttachments, getInlineImages)
-  - Templates (getTemplates, createTemplate, updateTemplate, deleteTemplate)
-  - Signatures (getSignatures, createSignature, updateSignature, deleteSignature)
-  - Advanced search (searchEmails with Gmail query parser)
-  - Saved searches (saveSearch, getSavedSearches, updateSavedSearch)
-  - Sync status utilities (getSyncStatus, syncAll)
+```
+google/
+  index.cjs           - GoogleAccountService facade (64 delegating methods)
+  base.cjs             - GoogleBaseService + shared helpers (~260 lines)
+  gmail.cjs            - GmailService (29 methods) - email CRUD, sync, batch, labels, attachments
+  gmailSearch.cjs      - Search mixin (11 methods) - Gmail query parsing, saved searches
+  calendar.cjs         - GoogleCalendarService (12 methods) - calendar sync, event CRUD
+  contacts.cjs         - GoogleContactsService (4 methods) - contact sync and CRUD
+  templates.cjs        - EmailTemplateService (8 static methods) - email templates
+  signatures.cjs       - EmailSignatureService (7 methods) - email signatures
+  package.json         - Module entry point (main: index.cjs)
+```
 
 ## Usage
 
-### Option 1: Original Unified Service (Backward Compatible)
-
 ```javascript
+// All existing code continues to work unchanged:
 const GoogleAccountService = require('./services/google');
-
 const service = new GoogleAccountService(db, email);
 await service.initialize();
 
-// All original methods still work
-await service.syncEmails(accountId);
-await service.syncCalendar(accountId);
-await service.syncContacts(accountId);
+// The redirect in services/googleAccountService.cjs also works:
+const GoogleAccountService = require('./services/googleAccountService');
 ```
 
-### Option 2: Individual Services (Recommended for New Code)
+The facade in `index.cjs` composes all sub-services and delegates every method call, so consumers see a single unified class with all 64+ methods and all static methods.
 
-```javascript
-const { GoogleCalendarService, GoogleContactsService } = require('./services/google');
+## Sub-Service Details
 
-// Use only what you need
-const calendarService = new GoogleCalendarService(db, email);
-await calendarService.initialize();
+| Module | Class | Methods | Purpose |
+|--------|-------|---------|---------|
+| base.cjs | GoogleBaseService | ~15 | OAuth, tokens, account CRUD, sync state, shared helpers |
+| gmail.cjs | GmailService | 29 | Email sync, send, reply, forward, trash, batch ops, labels, attachments |
+| gmailSearch.cjs | (mixin) | 11 | Gmail-style query parsing, search execution, saved searches |
+| calendar.cjs | GoogleCalendarService | 12 | Calendar sync, event CRUD, recurrence, reminders |
+| contacts.cjs | GoogleContactsService | 4 | Contact sync, search, CRUD |
+| templates.cjs | EmailTemplateService | 8 | Email template CRUD (static, DB-only) |
+| signatures.cjs | EmailSignatureService | 7 | Email signature CRUD (DB-only) |
+| index.cjs | GoogleAccountService | 64 | Facade that delegates to all sub-services |
 
-const events = await calendarService.getEvents(accountId, {
-  startTime: Date.now(),
-  limit: 50
-});
-```
+## Backward Compatibility
 
-### Option 3: Base Service Only (for account management)
-
-```javascript
-const { GoogleBaseService } = require('./services/google');
-
-// Static methods for account management
-const accountId = await GoogleBaseService.addAccount(db, email, oauth2Client);
-const accounts = await GoogleBaseService.listAccounts(db);
-```
-
-## File Breakdown
-
-### googleBaseService.cjs
-**Shared base class for all Google services**
-
-- OAuth2 client initialization
-- Token validation and refresh
-- Sync state management
-- Static account management methods:
-  - `addAccount(db, email, oauth2Client)`
-  - `removeAccount(db, accountId)`
-  - `getAccount(db, accountId)`
-  - `listAccounts(db)`
-- Utility functions:
-  - `withExponentialBackoff()` - API retry logic
-  - `isoToTimestamp()` - Date conversion
-  - `sleep()` - Rate limiting helper
-
-### gmailService.cjs (PARTIAL)
-**Email operations**
-
-Currently implemented:
-- Email sync (full and incremental via History API)
-- Email retrieval (getEmails, getEmail, searchEmails)
-- Email sending (sendEmail, replyToEmail, forwardEmail)
-- Email management (trashEmail, deleteEmail, markAsRead, toggleStar)
-- Database operations (_upsertEmail, _updateEmailLabels, _deleteEmail)
-
-Still needed (from original service):
-- Batch operations (~200 lines)
-- Label management (~300 lines)
-- Attachments and inline images (~200 lines)
-- Templates CRUD (~300 lines)
-- Signatures CRUD (~180 lines)
-- Advanced search with query parser (~350 lines)
-- Saved searches (~120 lines)
-
-**Total: ~900 lines implemented, ~1,650 lines remaining**
-
-### googleCalendarService.cjs (COMPLETE)
-**Calendar event operations**
-
-- syncCalendar() - Fetch upcoming events
-- getEvents() - Query local database
-- createEvent() - Add new calendar event
-- updateEvent() - Modify existing event
-- deleteEvent() - Remove event
-- _upsertCalendarEvent() - Database sync
-
-### googleContactsService.cjs (COMPLETE)
-**Contact management via People API**
-
-- syncContacts() - Paginated contact sync
-- getContacts() - Query with search and pagination
-- getContact() - Single contact details
-- _upsertContact() - Database sync
-
-### index.cjs
-**Module exports and backward compatibility**
-
-For now, this re-exports the original `googleAccountService.cjs` for full backward compatibility. Once Gmail service is complete, this will switch to a unified wrapper that delegates to individual services.
-
-## Migration Path
-
-### Phase 1 (Current): Directory structure + partial split
-- Created modular directory structure
-- Implemented base, calendar, and contacts services
-- Partial Gmail service with core operations
-- Backward compatibility maintained via index.cjs
-
-### Phase 2 (Future): Complete Gmail service
-- Move remaining ~1,650 lines from original service to gmailService.cjs
-- Implement batch operations, labels, attachments, templates, signatures
-- Implement advanced search and saved searches
-- Update index.cjs to use completed modular services
-
-### Phase 3 (Future): Full migration
-- Update all IPC handlers to use individual services where beneficial
-- Remove original googleAccountService.cjs
-- Update documentation and examples
-
-## Benefits of Refactor
-
-1. **Focused Modules**: Each service <600 lines (original was 2,823)
-2. **Clear Responsibilities**: Gmail/Calendar/Contacts separated
-3. **Easier Testing**: Test individual services in isolation
-4. **Better Code Navigation**: Find methods quickly by service type
-5. **Gradual Migration**: Backward compatibility allows safe transition
-6. **Reusability**: Use only the services you need
+- `electron/services/googleAccountService.cjs` is a one-line redirect to `./google/index.cjs`
+- All IPC handlers continue to use the same API with zero changes
+- Static methods (addAccount, removeAccount, etc.) are available on the facade class
 
 ## Testing
 
-All services can be imported and initialized:
-
 ```bash
-cd D:\Projects\ai-command-center
-node -e "const GoogleAccountService = require('./electron/services/google'); console.log('✓ Import successful');"
+# Verify facade loads
+node -e "const G = require('./electron/services/google/index.cjs'); console.log('OK');"
+
+# Verify redirect works
+node -e "const G1 = require('./electron/services/google/index.cjs'); const G2 = require('./electron/services/googleAccountService.cjs'); console.log('Same:', G1 === G2);"
 ```
-
-## Next Steps
-
-1. Complete gmailService.cjs with remaining methods
-2. Update index.cjs to use UnifiedGoogleAccountService wrapper
-3. Add JSDoc documentation to all public methods
-4. Create unit tests for each service
-5. Update API handlers to use modular services
-
-## Files Created
-
-- `electron/services/google/googleBaseService.cjs` - 256 lines
-- `electron/services/google/gmailService.cjs` - 900 lines (partial)
-- `electron/services/google/googleCalendarService.cjs` - 220 lines
-- `electron/services/google/googleContactsService.cjs` - 180 lines
-- `electron/services/google/index.cjs` - 39 lines
-- `electron/services/google/package.json` - 5 lines
-- `electron/services/google/README.md` - This file
-
-## Files Modified
-
-- `electron/main.cjs` - Updated import to `require('./services/google')`
-
-## Original File Preserved
-
-- `electron/services/googleAccountService.cjs` - 2,823 lines (unchanged, still in use via index.cjs)
 
 ---
 
-**Last Updated**: 2025-12-30
-**Status**: Phase 1 Complete, Phase 2 In Progress
+**Last Updated**: 2026-02-05
+**Status**: Complete

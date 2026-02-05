@@ -1,14 +1,93 @@
 /**
  * GoogleBaseService - Shared OAuth, token handling, and common utilities
  * Base class for Gmail, Calendar, and Contacts services
+ *
+ * Free functions: parseGmailMessage, isoToTimestamp, sleep, withExponentialBackoff
+ * Class: GoogleBaseService (constructor, initialize, ensureValidToken, _updateSyncState, static account methods)
  */
 
 const { google } = require('googleapis');
 const crypto = require('crypto');
+const { loadTokens } = require('../tokenStorage.cjs');
 const { loadStoredTokens, refreshTokens, getOAuth2Client } = require('../googleAuth.cjs');
 
 // Use crypto.randomUUID for generating unique IDs
 const uuidv4 = () => crypto.randomUUID();
+
+/**
+ * Parse Gmail message to extract relevant fields
+ * @param {Object} message - Raw Gmail message object
+ * @returns {Object} Parsed email data
+ */
+function parseGmailMessage(message) {
+  const headers = message.payload?.headers || [];
+
+  const getHeader = (name) => {
+    const header = headers.find(h => h.name.toLowerCase() === name.toLowerCase());
+    return header ? header.value : null;
+  };
+
+  const parseAddress = (addressString) => {
+    if (!addressString) return { email: null, name: null };
+    const match = addressString.match(/^(.+?)\s*<(.+?)>$/);
+    if (match) {
+      return { name: match[1].trim().replace(/"/g, ''), email: match[2].trim() };
+    }
+    return { email: addressString.trim(), name: null };
+  };
+
+  const fromParsed = parseAddress(getHeader('From'));
+  const toRaw = getHeader('To') || '';
+  const ccRaw = getHeader('Cc') || '';
+
+  // Extract body (text or HTML)
+  let bodyText = '';
+  let bodyHtml = '';
+
+  const extractBody = (part) => {
+    if (part.mimeType === 'text/plain' && part.body?.data) {
+      bodyText = Buffer.from(part.body.data, 'base64').toString('utf-8');
+    } else if (part.mimeType === 'text/html' && part.body?.data) {
+      bodyHtml = Buffer.from(part.body.data, 'base64').toString('utf-8');
+    } else if (part.parts) {
+      part.parts.forEach(extractBody);
+    }
+  };
+
+  if (message.payload) {
+    extractBody(message.payload);
+  }
+
+  return {
+    id: message.id,
+    threadId: message.threadId,
+    messageId: getHeader('Message-ID'),
+    subject: getHeader('Subject'),
+    snippet: message.snippet,
+    fromEmail: fromParsed.email,
+    fromName: fromParsed.name,
+    toEmails: toRaw,
+    ccEmails: ccRaw,
+    date: message.internalDate ? parseInt(message.internalDate) : null,
+    bodyText,
+    bodyHtml,
+    labels: (message.labelIds || []).join(','),
+    isRead: !(message.labelIds || []).includes('UNREAD'),
+    isStarred: (message.labelIds || []).includes('STARRED'),
+    hasAttachments: message.payload?.parts?.some(part => part.filename) ? 1 : 0,
+    rawData: JSON.stringify(message)
+  };
+}
+
+/**
+ * Convert ISO date to Unix timestamp (milliseconds)
+ * @param {string} isoDate - ISO date string
+ * @returns {number} Unix timestamp
+ */
+function isoToTimestamp(isoDate) {
+  if (!isoDate) return null;
+  return new Date(isoDate).getTime();
+}
 
 /**
  * Sleep helper for rate limiting
@@ -19,7 +98,7 @@ function sleep(ms) {
 }
 
 /**
- * Exponential backoff helper for API calls
+ * Exponential backoff helper
  * @param {Function} apiCall - Function that makes API call
  * @param {number} maxRetries - Maximum retry attempts
  * @returns {Promise} API call result
@@ -46,16 +125,6 @@ async function withExponentialBackoff(apiCall, maxRetries = 5) {
 }
 
 /**
- * Convert ISO date to Unix timestamp (milliseconds)
- * @param {string} isoDate - ISO date string
- * @returns {number} Unix timestamp
- */
-function isoToTimestamp(isoDate) {
-  if (!isoDate) return null;
-  return new Date(isoDate).getTime();
-}
-
-/**
  * GoogleBaseService - Base class for all Google services
  */
 class GoogleBaseService {
@@ -66,8 +135,7 @@ class GoogleBaseService {
   }
 
   /**
-   * Initialize OAuth2 client
-   * @returns {Promise<void>}
+   * Initialize OAuth2 client (does NOT create API clients - subclasses do that)
    */
   async initialize() {
     // Load tokens for this email
@@ -79,7 +147,6 @@ class GoogleBaseService {
 
   /**
    * Refresh access token if expired
-   * @returns {Promise<boolean>}
    */
   async ensureValidToken() {
     try {
@@ -113,25 +180,12 @@ class GoogleBaseService {
     stmt.run(accountId, syncType, historyId, Date.now());
   }
 
-  /**
-   * Get sync status for an account
-   * @param {string} accountId - Account ID
-   * @param {string} syncType - Type of sync ('gmail', 'calendar', 'contacts')
-   * @returns {Object|null} Sync state or null if not found
-   */
-  getSyncState(accountId, syncType) {
-    const stmt = this.db.prepare(
-      'SELECT * FROM account_sync_state WHERE account_id = ? AND sync_type = ?'
-    );
-    return stmt.get(accountId, syncType);
-  }
-
   // =========================================================================
   // STATIC ACCOUNT MANAGEMENT METHODS
   // =========================================================================
 
   /**
-   * Add Google account to database
+   * Add account to database
    * @param {Object} db - Database instance
    * @param {string} email - User email
    * @param {Object} oauth2Client - Initialized OAuth2 client
@@ -189,7 +243,7 @@ class GoogleBaseService {
    * @param {Object} db - Database instance
    * @param {string} accountId - Account ID to remove
    */
-  static async removeAccount(db, accountId) {
+  static removeAccount(db, accountId) {
     try {
       const stmt = db.prepare('DELETE FROM connected_accounts WHERE id = ?');
       stmt.run(accountId);
@@ -205,9 +259,9 @@ class GoogleBaseService {
    * Get account details
    * @param {Object} db - Database instance
    * @param {string} accountId - Account ID
-   * @returns {Promise<Object>} Account details
+   * @returns {Object} Account details
    */
-  static async getAccount(db, accountId) {
+  static getAccount(db, accountId) {
     const stmt = db.prepare('SELECT * FROM connected_accounts WHERE id = ?');
     const account = stmt.get(accountId);
 
@@ -222,11 +276,11 @@ class GoogleBaseService {
   }
 
   /**
-   * List all connected Google accounts
+   * List all connected accounts
    * @param {Object} db - Database instance
-   * @returns {Promise<Array>} List of accounts
+   * @returns {Array} List of accounts
    */
-  static async listAccounts(db) {
+  static listAccounts(db) {
     const stmt = db.prepare('SELECT * FROM connected_accounts WHERE provider = ? ORDER BY added_at DESC');
     const accounts = stmt.all('google');
 
@@ -237,11 +291,4 @@ class GoogleBaseService {
   }
 }
 
-// Export class and utilities
-module.exports = {
-  GoogleBaseService,
-  withExponentialBackoff,
-  isoToTimestamp,
-  sleep,
-  uuidv4
-};
+module.exports = { GoogleBaseService, parseGmailMessage, isoToTimestamp, sleep, withExponentialBackoff };
