@@ -2,7 +2,7 @@
   "name": "ai-command-center",
   "version": "2.0.0",
   "description": "Unified AI dashboard - Memory Viewer, Vision, Chain Runner",
-  "main": "electron/main.cjs",
+  "main": "02-SOURCE-CODE/electron/main.cjs",
   "scripts": {
     "dev": "vite",
     "dev:electron": "concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
@@ -14,12 +14,12 @@
     "test:coverage": "jest --coverage",
     "test:api": "node test-api.js",
     "type-check": "tsc --noEmit",
-    "db:check": "electron electron/utils/dbRepair.cjs check",
-    "db:checkpoint": "electron electron/utils/dbRepair.cjs checkpoint",
-    "db:vacuum": "electron electron/utils/dbRepair.cjs vacuum",
-    "db:backup": "electron electron/utils/dbRepair.cjs backup",
-    "db:recover": "electron electron/utils/dbRepair.cjs recover",
-    "db:fresh": "electron electron/utils/dbRepair.cjs fresh"
+    "db:check": "electron 02-SOURCE-CODE/electron/utils/dbRepair.cjs check",
+    "db:checkpoint": "electron 02-SOURCE-CODE/electron/utils/dbRepair.cjs checkpoint",
+    "db:vacuum": "electron 02-SOURCE-CODE/electron/utils/dbRepair.cjs vacuum",
+    "db:backup": "electron 02-SOURCE-CODE/electron/utils/dbRepair.cjs backup",
+    "db:recover": "electron 02-SOURCE-CODE/electron/utils/dbRepair.cjs recover",
+    "db:fresh": "electron 02-SOURCE-CODE/electron/utils/dbRepair.cjs fresh"
   },
   "author": "Myers",
   "license": "MIT",
@@ -89,7 +89,7 @@
     },
     "files": [
       "dist/**/*",
-      "electron/**/*"
+      "02-SOURCE-CODE/electron/**/*"
     ],
     "asarUnpack": [
       "node_modules/better-sqlite3/**/*",
@@ -103,7 +103,7 @@
       "signAndEditExecutable": false
     },
     "extraMetadata": {
-      "main": "electron/main.cjs"
+      "main": "02-SOURCE-CODE/electron/main.cjs"
     },
     "buildDependenciesFromSource": false,
     "npmRebuild": false

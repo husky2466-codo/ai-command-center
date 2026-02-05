@@ -20,9 +20,112 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Why:** Subagents provide better focus, can work in parallel, and prevent context bloat.
 
+## User Profile
+- **Name:** Myers
+- **Username:** myrproductions / myroproductions
+- **Focus Areas:** AV (Audio/Video) production, automation, AI tools
+
 ## Learned Preferences
 
 - **Suggest agents for next steps**: When recommending what to do next, always suggest using an agent to accomplish the task
+- Prefers direct, no-fluff communication
+- Wants practical solutions over theoretical discussions
+- Interested in local LLM setups and AI workflows
+- Prefers CLI-based auth (Claude CLI, Codex CLI) over raw API keys when possible
+- **Fun Rule:** After completing a big job, make a celebratory joke about how hard it was (be creative, mix it up!)
+
+## Context Monitoring
+
+When context reaches 30%, pause current work and save memory immediately. Invoke the context-guardian agent or update the "Session Notes" section before continuing.
+
+---
+
+## Home Lab Infrastructure
+
+### This Machine (Windows PC)
+- **Hostname:** nicmcmdcntr
+- **IP (Tailscale):** 100.94.59.40
+- **Role:** Main development workstation, AI Command Center host
+- **Projects:** `D:\Projects\`
+- **OneDrive:** `D:\OneDrive\` (synced with Mac mini)
+
+### Mac Mini Server
+- **Hostname:** nicolass-mac-mini (nicolasmac.localdomain)
+- **IP (Local):** 10.0.0.223
+- **IP (Tailscale):** 100.85.249.61
+- **User:** myroproductions
+- **SSH:** `ssh mac-mini` or `ssh mac-mini-tailscale`
+- **Storage:** 14TB at `/Volumes/NetworkBackup` (SMB shared)
+- **DevDrive:** `/Volumes/DevDrive/` (Projects, Apps, Data)
+- **CLAUDE.md:** Synced to `D:\OneDrive\CLAUDE.md`
+
+### DGX Spark (Ross's GPU Server)
+- **Host:** 192.168.3.20 (persistent site-to-site VPN via UCG-Ultimate)
+- **User:** myers
+- **SSH Key:** `C:/Users/myers/.ssh/dgx_spark_ross`
+- **GPU:** NVIDIA GB10, 122GB VRAM
+- **Workspace:** `~/projects/` (training, inference, data, outputs)
+- **ComfyUI:** Running at `http://192.168.3.20:8188`
+
+### Vlad (Buddy's Server)
+- **Host:** 192.168.3.30
+- **Purpose:** Future ticket-dismissed hosting
+
+### Tailscale VPN Mesh
+| Device | Hostname | Tailscale IP |
+|--------|----------|--------------|
+| Windows PC | nicmcmdcntr | 100.94.59.40 |
+| Mac Mini | nicolass-mac-mini | 100.85.249.61 |
+| Work Laptop | m105261nmyers | 100.77.47.105 |
+| Lighting PC | nicslightwaves | 100.64.126.14 |
+
+### Docker Services (Mac Mini)
+
+**Infrastructure:**
+| Service | Port | URL |
+|---------|------|-----|
+| Portainer | 9443 | https://10.0.0.223:9443 |
+| n8n | 5678 | http://10.0.0.223:5678 |
+| Uptime Kuma | 3100 | http://10.0.0.223:3100 |
+| Caddy (proxy) | 80, 443 | - |
+| PostgreSQL | 5433 | - |
+| Cloudflared | - | Cloudflare Tunnel |
+
+**Websites:**
+| Service | Port | URL |
+|---------|------|-----|
+| MyroProductions | 3001 | myroproductions.com |
+| ShowCore API | 3002 | - |
+| ShowCore App | 3003 | showcore.myroproductions.com |
+| QuoteMyAV Frontend | 3004 | - |
+| QuoteMyAV API | 3005 | - |
+| Alex Myers Imagez | 3006 | alex.myroproductions.com |
+| Friction Sim | 3007 | friction-sim.myroproductions.com |
+
+**Media Stack:**
+| Service | Port | URL |
+|---------|------|-----|
+| Jellyfin | 8096 | http://10.0.0.223:8096 |
+| Jellyseerr | 5055 | http://10.0.0.223:5055 |
+| Radarr | 7878 | http://10.0.0.223:7878 |
+| Sonarr | 8989 | http://10.0.0.223:8989 |
+| Prowlarr | 9696 | http://10.0.0.223:9696 |
+| Bazarr | 6767 | http://10.0.0.223:6767 |
+| qBittorrent | 8080 | http://10.0.0.223:8080 |
+
+### Cloudflare Tunnel
+- **Tunnel:** mac-mini-homelab (`dcca6d94-652d-46dc-8c1b-4ff67c363625`)
+- **Domain:** myroproductions.com (Cloudflare NS)
+
+### SSH Access
+- **Windows → Mac:** `ssh mac-mini` or `ssh mac-mini-tailscale`
+- **Windows → DGX:** `ssh dgx-spark-ross`
+- **Mac → Windows:** `ssh myers@100.94.59.40`
+
+### MCP Servers (Mac Mini)
+- `filesystem`, `github`, `fetch`, `brave-search`, `playwright`, `unifi`
+
+---
 
 ## Build & Development Commands
 
@@ -1028,3 +1131,56 @@ node test-cli-subscription.js
 2. Authenticate: `claude login`
 3. Verify in Settings: Should show "Connected" status
 4. Use any AI feature - automatically uses subscription
+
+---
+
+### 2026-01-06 - Home Lab Infrastructure & Portable Claude USB
+
+**SSH Bidirectional Access Established:**
+- Fixed Windows → Mac mini SSH (username is `myroproductions`, not `myers`)
+- Added SSH config aliases: `ssh mac-mini`, `ssh mac-mini-tailscale`, `ssh dgx-spark-ross`
+- Mac mini can SSH to Windows via `ssh myers@100.94.59.40`
+
+**CLAUDE.md Updated with Full Infrastructure:**
+- Added Home Lab Infrastructure section with all machines, IPs, usernames
+- Added complete Docker services list including media stack (Jellyfin, *arr suite)
+- Added Tailscale VPN mesh table
+- Added SSH access commands
+
+**Media Server Discovery:**
+- Jellyfin running on Mac mini at `http://10.0.0.223:8096`
+- Full *arr stack: Radarr (7878), Sonarr (8989), Prowlarr (9696), Bazarr (6767), qBittorrent (8080), Jellyseerr (5055)
+- TV should point to Mac mini, not Windows PC
+
+**Vaultwarden Deployed:**
+- Self-hosted Bitwarden on Mac mini port 8085
+- URL: `http://mac-mini.local:8085`
+- Admin panel: `http://mac-mini.local:8085/admin`
+- Admin token: `zIspPYVmeO3GSIqdoPfgZ1kKN109udRa7SEH4XFCv2LSfmRR9624Wq0FdAqFRFmb`
+- Can import Google Chrome password CSV
+
+**Portable Claude USB Created (E: drive):**
+- 486MB total, includes Node.js 22 + Claude CLI 2.0.76
+- SSH keys for all home lab machines
+- CLAUDE.md context files
+- Launcher scripts: `launch-claude.bat` (Windows), `launch-claude.sh` (Mac/Linux)
+- Structure:
+  ```
+  E:\claude-portable\
+  ├── launch-claude.bat/ps1/sh
+  ├── context/CLAUDE.md
+  ├── ssh/{config, id_ed25519, dgx_spark_ross}
+  └── node-portable/node-win/
+  ```
+
+**Ring Security Discussion:**
+- No official API, would need `ring-client-api` or similar
+- Deferred for now
+
+**Files Modified:**
+- `~/.ssh/config` - Added mac-mini, mac-mini-tailscale hosts
+- `D:\Projects\ai-command-center\CLAUDE.md` - Infrastructure section added
+
+**Files Created:**
+- `D:\OneDrive\windows-pc-pubkey.txt` - For SSH key exchange
+- `E:\claude-portable\*` - Full portable Claude environment
